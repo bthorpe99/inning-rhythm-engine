@@ -77,6 +77,33 @@ function matchupInnings(awayHistory, homeHistory) {
   });
 }
 
+async function loadPitcherProfile(personId, season) {
+  if (!personId) return null;
+  try {
+    const payload = await fetchJson(`${MLB_API}/people/${personId}/stats?stats=season&group=pitching&season=${season}`);
+    const stat = payload.stats?.[0]?.splits?.[0]?.stat;
+    if (!stat) return null;
+    return { id: personId, era: Number(stat.era), whip: Number(stat.whip), inningsPitched: Number(stat.inningsPitched), gamesStarted: Number(stat.gamesStarted) };
+  } catch { return null; }
+}
+
+function applyPitcherAdjustment(innings, awayPitcher, homePitcher) {
+  const valid = [awayPitcher?.era, homePitcher?.era].every(Number.isFinite);
+  if (!valid) return innings.map(row => ({ ...row, pitcherAdjusted: false }));
+  const pitcherUnder = Math.exp(-(awayPitcher.era + homePitcher.era) / 9);
+  return innings.map(row => {
+    const weight = row.inning <= 5 ? .35 : row.inning === 6 ? .20 : 0;
+    return {
+      ...row,
+      rawUnder: row.predictedUnder,
+      predictedUnder: Math.max(.05, Math.min(.95, (1 - weight) * row.predictedUnder + weight * pitcherUnder)),
+      pitcherUnder,
+      pitcherWeight: weight,
+      pitcherAdjusted: weight > 0
+    };
+  });
+}
+
 async function loadMlbMatchups() {
   const asOf = process.env.AS_OF_DATE ? new Date(`${process.env.AS_OF_DATE}T12:00:00Z`) : new Date();
   const end = new Date(asOf); end.setUTCDate(end.getUTCDate() - 1);
@@ -90,12 +117,18 @@ async function loadMlbMatchups() {
   const firstDate = upcoming[0]?.officialDate;
   const slate = upcoming.filter(game => game.officialDate === firstDate);
   const histories = teamHistories(scheduleGames(historyPayload));
+  const season = asOf.getUTCFullYear();
+  const pitcherIds = [...new Set(slate.flatMap(game => [game.teams.away.probablePitcher?.id, game.teams.home.probablePitcher?.id]).filter(Boolean))];
+  const pitcherPairs = await Promise.all(pitcherIds.map(async id => [id, await loadPitcherProfile(id, season)]));
+  const pitcherProfiles = new Map(pitcherPairs);
 
   return slate.map(game => {
     const away = game.teams.away.team;
     const home = game.teams.home.team;
     const awayHistory = histories.get(away.id) || [];
     const homeHistory = histories.get(home.id) || [];
+    const awayPitcherProfile = pitcherProfiles.get(game.teams.away.probablePitcher?.id) || null;
+    const homePitcherProfile = pitcherProfiles.get(game.teams.home.probablePitcher?.id) || null;
     return {
       id: `mlb-${game.gamePk}`, sport: 'MLB', market: 'INNING_RHYTHM',
       event: `${away.name} at ${home.name}`, selection: 'Inning over 0.5 run pattern',
@@ -106,11 +139,13 @@ async function loadMlbMatchups() {
       homePitcher: game.teams.home.probablePitcher?.fullName || 'TBD',
       awayPitcherId: game.teams.away.probablePitcher?.id || null,
       homePitcherId: game.teams.home.probablePitcher?.id || null,
+      awayPitcherProfile,
+      homePitcherProfile,
       awayPitcherPhoto: game.teams.away.probablePitcher?.id ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_240,q_auto:best/v1/people/${game.teams.away.probablePitcher.id}/headshot/67/current` : null,
       homePitcherPhoto: game.teams.home.probablePitcher?.id ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_240,q_auto:best/v1/people/${game.teams.home.probablePitcher.id}/headshot/67/current` : null,
-      innings: matchupInnings(awayHistory, homeHistory)
+      innings: applyPitcherAdjustment(matchupInnings(awayHistory, homeHistory), awayPitcherProfile, homePitcherProfile)
     };
   });
 }
 
-module.exports = { loadMlbMatchups, inningTotals, teamHistories, matchupInnings };
+module.exports = { loadMlbMatchups, inningTotals, teamHistories, matchupInnings, applyPitcherAdjustment };

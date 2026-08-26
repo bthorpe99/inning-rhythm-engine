@@ -29,7 +29,7 @@ function renderInningCharts() {
   const games = state.candidates.filter(item => item.sport === 'MLB' && Array.isArray(item.innings));
   document.querySelector('#inningCharts').innerHTML = games.length ? games.map(game => `<article class="game-chart">
     <div class="chart-top"><div><span class="tag">${escapeHtml(game.source)}</span><h3>${escapeHtml(game.event)}</h3>
-    <div class="pitchers">${pitcher(game.awayPitcherPhoto, game.awayPitcher, game.awayTeam)}<span class="versus">VS</span>${pitcher(game.homePitcherPhoto, game.homePitcher, game.homeTeam)}</div></div>
+    <div class="pitchers">${pitcher(game.awayPitcherPhoto, game.awayPitcher, game.awayTeam, game.awayPitcherProfile)}<span class="versus">VS</span>${pitcher(game.homePitcherPhoto, game.homePitcher, game.homeTeam, game.homePitcherProfile)}</div></div>
     <div class="legend"><span><i class="cell under-hit"></i>Under .5</span><span><i class="cell scored"></i>Run scored</span></div></div>
     ${oddsPanel(game)}
     <div class="rhythm-table">
@@ -38,14 +38,15 @@ function renderInningCharts() {
         <strong>${row.inning}</strong><div class="team-strips">
           <div class="strip-line"><label>${escapeHtml(game.awayTeam || 'Away')} · L10 ${pct(row.awayUnderLast10)} · streak ${row.awayUnderStreak}</label><div class="strip">${patternCells(row.awayUnderPattern)}</div></div>
           <div class="strip-line"><label>${escapeHtml(game.homeTeam || 'Home')} · L10 ${pct(row.homeUnderLast10)} · streak ${row.homeUnderStreak}</label><div class="strip">${patternCells(row.homeUnderPattern)}</div></div>
-        </div><div class="projection ${row.predictedUnder >= .6 ? 'strong-under' : ''}"><strong>${pct(row.predictedUnder)}</strong><span>${row.combinedUnderCount}/${row.combinedSampleSize} under</span></div>
+        </div><div class="projection ${row.predictedUnder >= .6 ? 'strong-under' : ''}"><strong>${pct(row.predictedUnder)}</strong><span>${row.combinedUnderCount}/${row.combinedSampleSize} under</span>${row.pitcherAdjusted ? `<em>Pitcher adjusted ${Math.round(row.pitcherWeight*100)}%</em>` : ''}</div>
       </div>`).join('')}
     </div></article>`).join('') : '<div class="empty">No inning-level history is available from the current provider.</div>';
 }
 
-function pitcher(photo, name, team) {
+function pitcher(photo, name, team, profile) {
   const image = photo ? `<img src="${escapeHtml(photo)}" alt="${escapeHtml(name)}" loading="lazy">` : '<span class="photo-placeholder">?</span>';
-  return `<div class="pitcher">${image}<div><strong>${escapeHtml(name || 'TBD')}</strong><small>${escapeHtml(team || '')}</small></div></div>`;
+  const stats = profile ? `ERA ${profile.era.toFixed(2)} · WHIP ${profile.whip.toFixed(2)} · ${profile.inningsPitched} IP` : 'Pitcher stats unavailable';
+  return `<div class="pitcher">${image}<div><strong>${escapeHtml(name || 'TBD')}</strong><small>${escapeHtml(team || '')}</small><small class="pitcher-stats">${escapeHtml(stats)}</small></div></div>`;
 }
 
 function oddsPanel(game) {

@@ -9,6 +9,7 @@ A local, auditable MLB inning-pattern research engine.
 - Shows away and home scoreless-inning rhythm strips, oldest to newest
 - Reports under-0.5 counts, last-10 under rate, and current scoreless-inning streak
 - Computes a transparent under projection weighted 55% to the 60-game rate and 45% to the last-20 rate
+- Adjusts innings 1–5 by 35% and inning 6 by 20% using both probable starters' season ERA profiles; bullpen innings remain history-driven
 - Shows MLB probable-pitcher headshots and names
 - Optionally injects live moneyline, full-game total, and first-inning total prices through The Odds API
 
