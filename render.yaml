@@ -15,3 +15,7 @@ services:
         value: us
       - key: INCLUDE_INNING_ODDS
         value: "true"
+      - key: TRACK_GAME_PK
+        value: "824234"
+      - key: TRACK_INNING
+        value: "3"

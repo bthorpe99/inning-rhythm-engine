@@ -62,6 +62,19 @@ function patternCells(pattern = []) {
   return pattern.map((under, index) => `<i class="cell ${under ? 'under-hit' : 'scored'}" title="Game ${index + 1}: ${under ? 'under 0.5 — scoreless' : 'run scored'}"></i>`).join('');
 }
 
+async function loadLive() {
+  try {
+    const live = await (await fetch('/api/live?gamePk=824234&inning=3', {cache:'no-store'})).json();
+    if (live.error) throw new Error(live.error);
+    const bases = `${live.onFirst ? '●' : '○'} ${live.onSecond ? '●' : '○'} ${live.onThird ? '●' : '○'}`;
+    document.querySelector('#liveMonitor').innerHTML = `<div class="live-top"><div><span class="live-dot"></span><b>LIVE · 3RD INNING UNDER 0.5</b><h2>${escapeHtml(live.awayTeam)} ${live.awayScore} — ${live.homeScore} ${escapeHtml(live.homeTeam)}</h2><p>${escapeHtml(live.half || '')} ${live.inningOrdinal || live.inning} · ${live.outs} out${live.outs === 1 ? '' : 's'} · Count ${live.balls}-${live.strikes} · Bases ${bases}</p></div><strong class="bet-status ${live.status.toLowerCase()}">${live.status}</strong></div>
+      <div class="live-details"><div class="live-pitcher">${live.pitcherPhoto ? `<img src="${escapeHtml(live.pitcherPhoto)}" alt="${escapeHtml(live.pitcher)}">` : ''}<div><small>ON THE MOUND</small><strong>${escapeHtml(live.pitcher)}</strong><span>${live.pitchCount === null ? 'Pitch count unavailable' : `${live.pitchCount} pitches`}</span></div></div><div><small>AT BAT</small><strong>${escapeHtml(live.batter)}</strong></div><div><small>3RD-INNING RUNS</small><strong>${live.trackedRuns}</strong></div></div>
+      <p class="last-play">${escapeHtml(live.lastPlay || 'Waiting for the next pitch…')}</p>`;
+  } catch (error) {
+    document.querySelector('#liveMonitor').innerHTML = `<div class="live-loading">Live feed unavailable: ${escapeHtml(error.message)}</div>`;
+  }
+}
+
 async function paperBet(candidateId) {
   const response = await fetch('/api/paper-bets', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({candidateId}) });
   if (!response.ok) alert((await response.json()).error); else loadLedger();
@@ -75,3 +88,5 @@ async function loadLedger() {
 
 document.querySelector('#refresh').onclick = () => load(true);
 load();
+loadLive();
+setInterval(loadLive, 10000);

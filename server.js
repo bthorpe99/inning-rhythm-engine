@@ -4,6 +4,7 @@ const path = require('node:path');
 const { evaluateCandidate } = require('./src/engine');
 const { loadCandidates } = require('./src/providers');
 const { readLedger, savePaperBet } = require('./src/store');
+const { loadLiveGame } = require('./src/live-game');
 
 loadEnv();
 const port = Number(process.env.PORT || 8787);
@@ -49,6 +50,12 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     if (req.method === 'GET' && url.pathname === '/api/signals') return json(res, 200, snapshot);
+    if (req.method === 'GET' && url.pathname === '/api/live') {
+      const gamePk = url.searchParams.get('gamePk') || process.env.TRACK_GAME_PK;
+      const inning = Number(url.searchParams.get('inning') || process.env.TRACK_INNING || 3);
+      if (!gamePk) return json(res, 400, { error: 'gamePk is required' });
+      return json(res, 200, await loadLiveGame(gamePk, inning));
+    }
     if (req.method === 'POST' && url.pathname === '/api/refresh') return json(res, 200, await refresh());
     if (req.method === 'GET' && url.pathname === '/api/paper-bets') return json(res, 200, readLedger());
     if (req.method === 'POST' && url.pathname === '/api/paper-bets') {
