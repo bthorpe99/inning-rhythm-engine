@@ -11,8 +11,6 @@ services:
         value: 22
       - key: POLL_SECONDS
         value: 300
-      - key: ODDS_API_KEY
-        sync: false
       - key: ODDS_REGIONS
         value: us
       - key: INCLUDE_INNING_ODDS
