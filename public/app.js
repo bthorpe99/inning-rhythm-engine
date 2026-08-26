@@ -5,7 +5,16 @@ const escapeHtml = value => String(value).replace(/[&<>'"]/g, char => ({'&':'&am
 
 async function load(refresh = false) {
   const response = await fetch(refresh ? '/api/refresh' : '/api/signals', { method: refresh ? 'POST' : 'GET' });
-  state = await response.json(); render();
+  state = await response.json(); render(); loadAnalytics();
+}
+
+async function loadAnalytics() {
+  try {
+    const report = await (await fetch('/api/analytics',{cache:'no-store'})).json();
+    const qualityCounts = report.signals.reduce((acc,row)=>(acc[row.quality.confidence]=(acc[row.quality.confidence]||0)+1,acc),{});
+    const bins = report.calibration.bins.filter(bin=>bin.count);
+    document.querySelector('#modelEvidence').innerHTML = `<article><small>BACKTEST SAMPLES</small><strong>${report.calibration.samples}</strong></article><article><small>BRIER SCORE</small><strong>${report.calibration.brier?.toFixed(3) ?? '—'}</strong></article><article><small>HIGH / MED / LOW</small><strong>${qualityCounts.HIGH||0} / ${qualityCounts.MEDIUM||0} / ${qualityCounts.LOW||0}</strong></article><div class="calibration-bars">${bins.map(bin=>`<div title="${bin.count} samples"><i style="height:${bin.actual*100}%"></i><span>${Math.round(bin.predicted*100)}→${Math.round(bin.actual*100)}</span></div>`).join('')}</div>`;
+  } catch(error) { document.querySelector('#modelEvidence').innerHTML=`<div class="live-loading">Evidence unavailable: ${escapeHtml(error.message)}</div>`; }
 }
 
 function render() {

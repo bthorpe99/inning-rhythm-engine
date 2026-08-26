@@ -1,0 +1,41 @@
+task_name: inning-under-model-v2
+objective: Estimate and audit the probability that an MLB inning finishes with zero runs.
+unit_of_work: One game and inning at a timestamp.
+authoritative_inputs:
+  - MLB Stats API schedule, linescore, boxscore, and live feed
+  - Baseball Savant/Statcast metrics when locally cached
+  - Configured odds provider responses with timestamps
+criteria:
+  - id: C1
+    requirement: Every prediction includes game, inning, timestamp, probability, sample size, inputs, and confidence flags.
+    verifier: test
+    evidence_required: prediction schema test
+  - id: C2
+    requirement: Backtests use only games earlier than the evaluated game.
+    verifier: test
+    evidence_required: chronological rolling-window test
+  - id: C3
+    requirement: Live predictions respond monotonically to outs, runners, and a scored run.
+    verifier: test
+    evidence_required: state-transition tests
+  - id: C4
+    requirement: Replaying the same snapshot does not create a duplicate record.
+    verifier: test
+    evidence_required: idempotency-key test
+  - id: C5
+    requirement: Missing required inputs lower confidence and remain visible.
+    verifier: test
+    evidence_required: data-quality test
+not_done_if:
+  - probabilities are presented without sample size or quality flags
+  - backtest sees future results
+  - sportsbook prices are fabricated
+authority:
+  allowed_reads: [public MLB and configured data-provider endpoints]
+  allowed_writes: [local application data, GitHub repository, authorized Render service]
+  external_actions_requiring_approval: [placing wagers, paid subscriptions, messages to third parties]
+budgets:
+  max_attempts: 3
+  max_wall_minutes: 30
+  max_concurrency: 1
+stop_on: [objective_complete, repeated_blocker, authority_required, unsafe_state]

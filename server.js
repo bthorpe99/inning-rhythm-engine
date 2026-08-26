@@ -5,6 +5,7 @@ const { evaluateCandidate } = require('./src/engine');
 const { loadCandidates } = require('./src/providers');
 const { readLedger, savePaperBet } = require('./src/store');
 const { loadLiveGame, loadLiveSlate } = require('./src/live-game');
+const { analytics, recordPrediction, readLedger: readPredictionLedger } = require('./src/analytics');
 
 loadEnv();
 const port = Number(process.env.PORT || 8787);
@@ -56,7 +57,20 @@ const server = http.createServer(async (req, res) => {
       if (!gamePk) return json(res, 400, { error: 'gamePk is required' });
       return json(res, 200, await loadLiveGame(gamePk, inning));
     }
-    if (req.method === 'GET' && url.pathname === '/api/live-slate') return json(res, 200, await loadLiveSlate(url.searchParams.get('date') || undefined, snapshot.candidates));
+    if (req.method === 'GET' && url.pathname === '/api/live-slate') {
+      const slate = await loadLiveSlate(url.searchParams.get('date') || undefined, snapshot.candidates);
+      const minute = new Date().toISOString().slice(0,16);
+      for (const game of slate.filter(item => item.kind === 'LIVE' && item.projection)) recordPrediction({
+        idempotencyKey:`${game.gamePk}:${game.trackedInning}:${minute}`,
+        gamePk:game.gamePk, inning:game.trackedInning, probability:game.projection.liveUnder,
+        pregameProbability:game.projection.pregameUnder, pitcher:game.pitcher, pitcherEra:game.pitcherEra,
+        outs:game.outs, half:game.half, runners:[game.onFirst,game.onSecond,game.onThird], trackedRuns:game.trackedRuns,
+        source:'MLB Stats API live feed', status:game.status
+      });
+      return json(res, 200, slate);
+    }
+    if (req.method === 'GET' && url.pathname === '/api/analytics') return json(res, 200, analytics(snapshot.candidates));
+    if (req.method === 'GET' && url.pathname === '/api/predictions') return json(res, 200, readPredictionLedger());
     if (req.method === 'POST' && url.pathname === '/api/refresh') return json(res, 200, await refresh());
     if (req.method === 'GET' && url.pathname === '/api/paper-bets') return json(res, 200, readLedger());
     if (req.method === 'POST' && url.pathname === '/api/paper-bets') {
