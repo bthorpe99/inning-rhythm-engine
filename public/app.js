@@ -64,15 +64,23 @@ function patternCells(pattern = []) {
 
 async function loadLive() {
   try {
-    const live = await (await fetch('/api/live?gamePk=824234&inning=3', {cache:'no-store'})).json();
-    if (live.error) throw new Error(live.error);
-    const bases = `${live.onFirst ? '●' : '○'} ${live.onSecond ? '●' : '○'} ${live.onThird ? '●' : '○'}`;
-    document.querySelector('#liveMonitor').innerHTML = `<div class="live-top"><div><span class="live-dot"></span><b>LIVE · 3RD INNING UNDER 0.5</b><h2>${escapeHtml(live.awayTeam)} ${live.awayScore} — ${live.homeScore} ${escapeHtml(live.homeTeam)}</h2><p>${escapeHtml(live.half || '')} ${live.inningOrdinal || live.inning} · ${live.outs} out${live.outs === 1 ? '' : 's'} · Count ${live.balls}-${live.strikes} · Bases ${bases}</p></div><strong class="bet-status ${live.status.toLowerCase()}">${live.status}</strong></div>
-      <div class="live-details"><div class="live-pitcher">${live.pitcherPhoto ? `<img src="${escapeHtml(live.pitcherPhoto)}" alt="${escapeHtml(live.pitcher)}">` : ''}<div><small>ON THE MOUND</small><strong>${escapeHtml(live.pitcher)}</strong><span>${live.pitchCount === null ? 'Pitch count unavailable' : `${live.pitchCount} pitches`}</span></div></div><div><small>AT BAT</small><strong>${escapeHtml(live.batter)}</strong></div><div><small>3RD-INNING RUNS</small><strong>${live.trackedRuns}</strong></div></div>
-      <p class="last-play">${escapeHtml(live.lastPlay || 'Waiting for the next pitch…')}</p>`;
+    const games = await (await fetch('/api/live-slate', {cache:'no-store'})).json();
+    if (!Array.isArray(games)) throw new Error(games.error || 'Invalid live slate');
+    const order = {LIVE:0,UPCOMING:1,FINAL:2};
+    const ordered = games.sort((a,b) => order[a.kind] - order[b.kind]);
+    document.querySelector('#liveMonitor').innerHTML = ordered.map(liveCard).join('');
   } catch (error) {
     document.querySelector('#liveMonitor').innerHTML = `<div class="live-loading">Live feed unavailable: ${escapeHtml(error.message)}</div>`;
   }
+}
+
+function liveCard(game) {
+  if (game.kind !== 'LIVE') {
+    const time = game.startsAt ? new Date(game.startsAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}) : game.detailedState;
+    return `<article class="slate-card upcoming"><span class="slate-kind">${escapeHtml(game.kind)}</span><h3>${escapeHtml(game.awayTeam)} at ${escapeHtml(game.homeTeam)}</h3><strong>${escapeHtml(time || '')}</strong><p>${escapeHtml(game.awayPitcher || 'TBD')} vs ${escapeHtml(game.homePitcher || 'TBD')}</p></article>`;
+  }
+  const bases = `${game.onFirst ? '●' : '○'} ${game.onSecond ? '●' : '○'} ${game.onThird ? '●' : '○'}`;
+  return `<article class="slate-card live"><div class="slate-card-top"><span><i class="live-dot"></i>LIVE · INNING ${game.trackedInning} UNDER .5</span><strong class="bet-status ${game.status.toLowerCase()}">${game.status}</strong></div><h3>${escapeHtml(game.awayTeam)} ${game.awayScore} — ${game.homeScore} ${escapeHtml(game.homeTeam)}</h3><p>${escapeHtml(game.half || '')} ${game.inningOrdinal || game.inning} · ${game.outs} outs · ${game.balls}-${game.strikes} · ${bases}</p><div class="slate-pitcher">${game.pitcherPhoto ? `<img src="${escapeHtml(game.pitcherPhoto)}" alt="${escapeHtml(game.pitcher)}">` : ''}<div><small>ON THE MOUND</small><strong>${escapeHtml(game.pitcher)}</strong><span>${game.pitchCount ?? '—'} pitches · vs ${escapeHtml(game.batter)}</span></div><b>${game.trackedRuns} RUNS</b></div><small class="last-play">${escapeHtml(game.lastPlay || 'Waiting for next pitch…')}</small></article>`;
 }
 
 async function paperBet(candidateId) {
@@ -89,4 +97,4 @@ async function loadLedger() {
 document.querySelector('#refresh').onclick = () => load(true);
 load();
 loadLive();
-setInterval(loadLive, 10000);
+setInterval(loadLive, 15000);

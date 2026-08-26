@@ -9,7 +9,6 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
   const awayRuns = inning?.away?.runs ?? 0;
   const homeRuns = inning?.home?.runs ?? 0;
   const thirdComplete = linescore.currentInning > trackedInning ||
-    (linescore.currentInning === trackedInning && linescore.inningState === 'Middle') ||
     (linescore.currentInning === trackedInning && linescore.inningState === 'End');
   const trackedRuns = awayRuns + homeRuns;
   const pitcherId = matchup.pitcher?.id;
@@ -43,4 +42,31 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
   };
 }
 
-module.exports = { loadLiveGame };
+async function loadLiveSlate(date = new Date().toISOString().slice(0, 10)) {
+  const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&gameTypes=R&hydrate=team,probablePitcher,linescore`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`MLB schedule returned ${response.status}`);
+  const schedule = await response.json();
+  const games = (schedule.dates || []).flatMap(day => day.games || []);
+  return Promise.all(games.map(async game => {
+    const state = game.status?.abstractGameState;
+    if (state === 'Live') {
+      const activeInning = Math.max(1, game.linescore?.currentInning || 1);
+      return { kind: 'LIVE', ...(await loadLiveGame(game.gamePk, activeInning)) };
+    }
+    return {
+      kind: state === 'Preview' ? 'UPCOMING' : 'FINAL',
+      gamePk: game.gamePk,
+      detailedState: game.status?.detailedState,
+      awayTeam: game.teams?.away?.team?.name,
+      homeTeam: game.teams?.home?.team?.name,
+      awayScore: game.teams?.away?.score ?? 0,
+      homeScore: game.teams?.home?.score ?? 0,
+      startsAt: game.gameDate,
+      awayPitcher: game.teams?.away?.probablePitcher?.fullName || 'TBD',
+      homePitcher: game.teams?.home?.probablePitcher?.fullName || 'TBD'
+    };
+  }));
+}
+
+module.exports = { loadLiveGame, loadLiveSlate };
