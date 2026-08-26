@@ -56,7 +56,7 @@ const server = http.createServer(async (req, res) => {
       if (!gamePk) return json(res, 400, { error: 'gamePk is required' });
       return json(res, 200, await loadLiveGame(gamePk, inning));
     }
-    if (req.method === 'GET' && url.pathname === '/api/live-slate') return json(res, 200, await loadLiveSlate(url.searchParams.get('date') || undefined));
+    if (req.method === 'GET' && url.pathname === '/api/live-slate') return json(res, 200, await loadLiveSlate(url.searchParams.get('date') || undefined, snapshot.candidates));
     if (req.method === 'POST' && url.pathname === '/api/refresh') return json(res, 200, await refresh());
     if (req.method === 'GET' && url.pathname === '/api/paper-bets') return json(res, 200, readLedger());
     if (req.method === 'POST' && url.pathname === '/api/paper-bets') {

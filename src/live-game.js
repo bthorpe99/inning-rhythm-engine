@@ -13,7 +13,9 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
   const trackedRuns = awayRuns + homeRuns;
   const pitcherId = matchup.pitcher?.id;
   const side = linescore.isTopInning ? 'home' : 'away';
-  const pitcherStats = pitcherId ? feed.liveData?.boxscore?.teams?.[side]?.players?.[`ID${pitcherId}`]?.stats?.pitching : null;
+  const pitcherBox = pitcherId ? feed.liveData?.boxscore?.teams?.[side]?.players?.[`ID${pitcherId}`] : null;
+  const pitcherStats = pitcherBox?.stats?.pitching;
+  const pitcherSeasonStats = pitcherBox?.seasonStats?.pitching;
   const status = trackedRuns > 0 ? 'LOST' : thirdComplete ? 'WON' : 'PENDING';
 
   return {
@@ -33,6 +35,7 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
     pitcherId: pitcherId || null,
     pitcherPhoto: pitcherId ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_240,q_auto:best/v1/people/${pitcherId}/headshot/67/current` : null,
     pitchCount: pitcherStats?.pitchesThrown ?? null,
+    pitcherEra: Number.isFinite(Number(pitcherSeasonStats?.era)) ? Number(pitcherSeasonStats.era) : null,
     batter: matchup.batter?.fullName || 'TBD',
     onFirst: Boolean(linescore.offense?.first),
     onSecond: Boolean(linescore.offense?.second),
@@ -42,7 +45,20 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
   };
 }
 
-async function loadLiveSlate(date = new Date().toISOString().slice(0, 10)) {
+function liveUnderProjection(game, pregameUnder) {
+  if (!Number.isFinite(pregameUnder)) return null;
+  if (game.trackedRuns > 0) return { pregameUnder, liveUnder: 0, change: -pregameUnder };
+  const halfBaseline = Math.sqrt(pregameUnder);
+  const pitcherHalf = Number.isFinite(game.pitcherEra) ? Math.exp(-game.pitcherEra / 9) : halfBaseline;
+  const currentHalf = .5 * halfBaseline + .5 * pitcherHalf;
+  const remainingOuts = Math.max(0, 3 - game.outs);
+  const basePenalty = Math.max(.15, 1 - (game.onFirst ? .12 : 0) - (game.onSecond ? .22 : 0) - (game.onThird ? .34 : 0));
+  const remainingHalfUnder = Math.pow(currentHalf, remainingOuts / 3) * basePenalty;
+  const liveUnder = Math.max(0, Math.min(1, game.half === 'Top' ? remainingHalfUnder * halfBaseline : remainingHalfUnder));
+  return { pregameUnder, liveUnder, change: liveUnder - pregameUnder };
+}
+
+async function loadLiveSlate(date = new Date().toISOString().slice(0, 10), projections = []) {
   const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&gameTypes=R&hydrate=team,probablePitcher,linescore`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`MLB schedule returned ${response.status}`);
@@ -52,7 +68,10 @@ async function loadLiveSlate(date = new Date().toISOString().slice(0, 10)) {
     const state = game.status?.abstractGameState;
     if (state === 'Live') {
       const activeInning = Math.max(1, game.linescore?.currentInning || 1);
-      return { kind: 'LIVE', ...(await loadLiveGame(game.gamePk, activeInning)) };
+      const live = await loadLiveGame(game.gamePk, activeInning);
+      const matchup = projections.find(item => item.id === `mlb-${game.gamePk}`);
+      const pregameUnder = matchup?.innings?.find(row => row.inning === activeInning)?.predictedUnder;
+      return { kind: 'LIVE', ...live, projection: liveUnderProjection(live, pregameUnder) };
     }
     return {
       kind: state === 'Preview' ? 'UPCOMING' : 'FINAL',
@@ -69,4 +88,4 @@ async function loadLiveSlate(date = new Date().toISOString().slice(0, 10)) {
   }));
 }
 
-module.exports = { loadLiveGame, loadLiveSlate };
+module.exports = { loadLiveGame, loadLiveSlate, liveUnderProjection };
