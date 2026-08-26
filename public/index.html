@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Edge Monitor</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main>
+    <header><div><p class="eyebrow">60-GAME UNDER ENGINE</p><h1>Scoreless Rhythm</h1><p class="sub">Finding innings that repeatedly stay under 0.5 runs</p></div><button id="refresh">Refresh MLB data</button></header>
+    <section id="warning" class="warning"></section>
+    <section class="stats"><article><span>Games tracked</span><strong id="signalCount">—</strong></article><article><span>History window</span><strong>60</strong></article><article><span>Innings/game</span><strong>9</strong></article><article><span>Mode</span><strong id="mode">—</strong></article></section>
+    <div class="toolbar"><div><h2>Strongest scoreless patterns</h2><p class="meta">Highest projected under 0.5 innings across today’s slate</p></div></div>
+    <section id="underBoard" class="under-board"></section>
+    <div class="toolbar chart-heading"><div><h2>Today’s under rhythms</h2><p class="meta">Each dot is one completed game: bright = under 0.5 (scoreless), dark = a run scored. Oldest → newest.</p></div></div>
+    <section id="inningCharts" class="inning-charts"></section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

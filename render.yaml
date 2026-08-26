@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: inning-rhythm-engine
+    runtime: node
+    plan: free
+    buildCommand: npm test
+    startCommand: npm start
+    healthCheckPath: /api/signals
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: POLL_SECONDS
+        value: 300
+      - key: ODDS_API_KEY
+        sync: false
+      - key: ODDS_REGIONS
+        value: us
+      - key: INCLUDE_INNING_ODDS
+        value: "true"

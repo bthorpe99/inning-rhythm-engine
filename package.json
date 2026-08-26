@@ -1,0 +1,13 @@
+{
+  "name": "edge-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Paper-betting research monitor for MLB inning unders and football interceptions",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
