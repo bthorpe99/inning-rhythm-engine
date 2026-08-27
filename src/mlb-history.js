@@ -63,13 +63,20 @@ function matchupInnings(awayHistory, homeHistory) {
     const predictedOver = Math.max(.05, Math.min(.95, .55 * longRate + .45 * recentRate));
     const awayUnderCount = awayHistory.filter(g => g.totals[index] === 0).length;
     const homeUnderCount = homeHistory.filter(g => g.totals[index] === 0).length;
+    const awayUnder15Count = awayHistory.filter(g => g.totals[index] <= 1).length;
+    const homeUnder15Count = homeHistory.filter(g => g.totals[index] <= 1).length;
+    const baseLambda = -Math.log(Math.max(.01, 1 - predictedOver));
     return {
       inning,
       predictedUnder: 1 - predictedOver,
+      predictedUnder15: Math.min(.99, (1 - predictedOver) * (1 + baseLambda)),
       combinedUnderCount: awayUnderCount + homeUnderCount,
+      combinedUnder15Count: awayUnder15Count + homeUnder15Count,
       combinedSampleSize: awayHistory.length + homeHistory.length,
       awayUnderPattern: awayHistory.map(g => g.totals[index] === 0 ? 1 : 0),
       homeUnderPattern: homeHistory.map(g => g.totals[index] === 0 ? 1 : 0),
+      awayUnder15Pattern: awayHistory.map(g => g.totals[index] <= 1 ? 1 : 0),
+      homeUnder15Pattern: homeHistory.map(g => g.totals[index] <= 1 ? 1 : 0),
       awayUnderLast10: 1 - overRate(awayHistory, inning, 10),
       homeUnderLast10: 1 - overRate(homeHistory, inning, 10),
       awayUnderStreak: underStreak(awayHistory, inning),
@@ -94,10 +101,14 @@ function applyPitcherAdjustment(innings, awayPitcher, homePitcher) {
   const pitcherUnder = Math.exp(-(awayPitcher.era + homePitcher.era) / 9);
   return innings.map(row => {
     const weight = row.inning <= 5 ? .35 : row.inning === 6 ? .20 : 0;
+    const adjustedUnder = Math.max(.05, Math.min(.95, (1 - weight) * row.predictedUnder + weight * pitcherUnder));
+    const adjustedLambda = -Math.log(adjustedUnder);
     return {
       ...row,
       rawUnder: row.predictedUnder,
-      predictedUnder: Math.max(.05, Math.min(.95, (1 - weight) * row.predictedUnder + weight * pitcherUnder)),
+      rawUnder15: row.predictedUnder15,
+      predictedUnder: adjustedUnder,
+      predictedUnder15: Math.min(.99, adjustedUnder * (1 + adjustedLambda)),
       pitcherUnder,
       pitcherWeight: weight,
       pitcherAdjusted: weight > 0

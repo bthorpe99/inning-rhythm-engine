@@ -16,7 +16,15 @@ test('live under probability rises with outs and falls with runners', () => {
 });
 
 test('a run makes under 0.5 probability zero', () => {
-  assert.equal(liveUnderProjection({trackedRuns:1},.6).liveUnder,0);
+  const result=liveUnderProjection({trackedRuns:1,outs:1,half:'Bottom',pitcherEra:3,onFirst:false,onSecond:false,onThird:false},.6);
+  assert.equal(result.liveUnder05,0);
+  assert.ok(result.liveUnder15>0);
+});
+
+test('two runs make both under thresholds zero', () => {
+  const result=liveUnderProjection({trackedRuns:2},.6);
+  assert.equal(result.liveUnder05,0);
+  assert.equal(result.liveUnder15,0);
 });
 
 test('slate date uses America/Chicago instead of UTC rollover', () => {

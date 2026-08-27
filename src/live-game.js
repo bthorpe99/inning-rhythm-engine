@@ -53,15 +53,18 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
 
 function liveUnderProjection(game, pregameUnder) {
   if (!Number.isFinite(pregameUnder)) return null;
-  if (game.trackedRuns > 0) return { pregameUnder, liveUnder: 0, change: -pregameUnder };
+  if (game.trackedRuns > 1) return { pregameUnder, liveUnder: 0, liveUnder05: 0, liveUnder15: 0, change: -pregameUnder };
   const halfBaseline = Math.sqrt(pregameUnder);
   const pitcherHalf = Number.isFinite(game.pitcherEra) ? Math.exp(-game.pitcherEra / 9) : halfBaseline;
   const currentHalf = .5 * halfBaseline + .5 * pitcherHalf;
   const remainingOuts = Math.max(0, 3 - game.outs);
   const basePenalty = Math.max(.15, 1 - (game.onFirst ? .12 : 0) - (game.onSecond ? .22 : 0) - (game.onThird ? .34 : 0));
   const remainingHalfUnder = Math.pow(currentHalf, remainingOuts / 3) * basePenalty;
-  const liveUnder = Math.max(0, Math.min(1, game.half === 'Top' ? remainingHalfUnder * halfBaseline : remainingHalfUnder));
-  return { pregameUnder, liveUnder, change: liveUnder - pregameUnder };
+  const noMoreRuns = Math.max(0, Math.min(1, game.half === 'Top' ? remainingHalfUnder * halfBaseline : remainingHalfUnder));
+  const liveUnder05 = game.trackedRuns > 0 ? 0 : noMoreRuns;
+  const remainingLambda = -Math.log(Math.max(.001, noMoreRuns));
+  const liveUnder15 = game.trackedRuns === 1 ? noMoreRuns : Math.min(.999, noMoreRuns * (1 + remainingLambda));
+  return { pregameUnder, liveUnder: liveUnder05, liveUnder05, liveUnder15, change: liveUnder05 - pregameUnder };
 }
 
 function dateInCentral(date = new Date()) {

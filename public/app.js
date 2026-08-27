@@ -39,15 +39,17 @@ function renderInningCharts() {
   document.querySelector('#inningCharts').innerHTML = games.length ? games.map(game => `<article class="game-chart">
     <div class="chart-top"><div><span class="tag">${escapeHtml(game.source)}</span><h3>${escapeHtml(game.event)}</h3>
     <div class="pitchers">${pitcher(game.awayPitcherPhoto, game.awayPitcher, game.awayTeam, game.awayPitcherProfile)}<span class="versus">VS</span>${pitcher(game.homePitcherPhoto, game.homePitcher, game.homeTeam, game.homePitcherProfile)}</div></div>
-    <div class="legend"><span><i class="cell under-hit"></i>Under .5</span><span><i class="cell scored"></i>Run scored</span></div></div>
+    <div class="legend"><span><i class="cell under-hit"></i>Under 0.5</span><span><i class="cell under15-hit"></i>Under 1.5</span><span><i class="cell scored"></i>2+ runs</span></div></div>
     ${oddsPanel(game)}
     <div class="rhythm-table">
       <div class="rhythm-head"><b>INN</b><span>60-GAME UNDER RHYTHM — AWAY / HOME</span><b>PROJECTED UNDER</b></div>
       ${game.innings.map(row => `<div class="rhythm-row">
         <strong>${row.inning}</strong><div class="team-strips">
-          <div class="strip-line"><label>${escapeHtml(game.awayTeam || 'Away')} · L10 ${pct(row.awayUnderLast10)} · streak ${row.awayUnderStreak}</label><div class="strip">${patternCells(row.awayUnderPattern)}</div></div>
-          <div class="strip-line"><label>${escapeHtml(game.homeTeam || 'Home')} · L10 ${pct(row.homeUnderLast10)} · streak ${row.homeUnderStreak}</label><div class="strip">${patternCells(row.homeUnderPattern)}</div></div>
-        </div><div class="projection ${row.predictedUnder >= .6 ? 'strong-under' : ''}"><strong>${pct(row.predictedUnder)}</strong><span>${row.combinedUnderCount}/${row.combinedSampleSize} under</span>${row.pitcherAdjusted ? `<em>Pitcher adjusted ${Math.round(row.pitcherWeight*100)}%</em>` : ''}</div>
+          <div class="strip-line"><label>${escapeHtml(game.awayTeam || 'Away')} · U0.5</label><div class="strip">${patternCells(row.awayUnderPattern,'under-hit')}</div></div>
+          <div class="strip-line"><label>${escapeHtml(game.awayTeam || 'Away')} · U1.5</label><div class="strip">${patternCells(row.awayUnder15Pattern,'under15-hit')}</div></div>
+          <div class="strip-line"><label>${escapeHtml(game.homeTeam || 'Home')} · U0.5</label><div class="strip">${patternCells(row.homeUnderPattern,'under-hit')}</div></div>
+          <div class="strip-line"><label>${escapeHtml(game.homeTeam || 'Home')} · U1.5</label><div class="strip">${patternCells(row.homeUnder15Pattern,'under15-hit')}</div></div>
+        </div><div class="projection ${row.predictedUnder >= .6 ? 'strong-under' : ''}"><strong>U0.5 ${pct(row.predictedUnder)}</strong><span>${row.combinedUnderCount}/${row.combinedSampleSize} hit</span><strong class="under15-proj">U1.5 ${pct(row.predictedUnder15)}</strong><span>${row.combinedUnder15Count}/${row.combinedSampleSize} hit</span>${row.pitcherAdjusted ? `<em>Pitcher adjusted ${Math.round(row.pitcherWeight*100)}%</em>` : ''}</div>
       </div>`).join('')}
     </div></article>`).join('') : '<div class="empty">No inning-level history is available from the current provider.</div>';
 }
@@ -68,8 +70,9 @@ function marketBox(label, market) {
   return `<div class="market"><small>${escapeHtml(label)} · ${escapeHtml(market.book)}</small><span>${market.outcomes.map(outcome => `${escapeHtml(outcome.name)}${outcome.point !== undefined ? ` ${outcome.point}` : ''} <strong>${money(outcome.price)}</strong>`).join(' · ')}</span></div>`;
 }
 
-function patternCells(pattern = []) {
-  return pattern.map((under, index) => `<i class="cell ${under ? 'under-hit' : 'scored'}" title="Game ${index + 1}: ${under ? 'under 0.5 — scoreless' : 'run scored'}"></i>`).join('');
+function patternCells(pattern = [], hitClass='under-hit') {
+  const threshold = hitClass === 'under15-hit' ? 'under 1.5' : 'under 0.5';
+  return pattern.map((under, index) => `<i class="cell ${under ? hitClass : 'scored'}" title="Game ${index + 1}: ${under ? threshold : `missed ${threshold}`}"></i>`).join('');
 }
 
 async function loadLive() {
@@ -90,7 +93,7 @@ function liveCard(game) {
     return `<article class="slate-card upcoming"><span class="slate-kind">${escapeHtml(game.kind)}</span><h3>${escapeHtml(game.awayTeam)} at ${escapeHtml(game.homeTeam)}</h3><strong>${escapeHtml(time || '')}</strong><p>Probable: ${escapeHtml(game.awayPitcher || 'TBD')} vs ${escapeHtml(game.homePitcher || 'TBD')}</p></article>`;
   }
   const bases = `${game.onFirst ? '●' : '○'} ${game.onSecond ? '●' : '○'} ${game.onThird ? '●' : '○'}`;
-  const projection = game.projection ? `<div class="live-projection"><small>LIVE UNDER PROJECTION</small><strong>${pct(game.projection.liveUnder)}</strong><span class="${game.projection.change >= 0 ? 'up' : 'down'}">${game.projection.change >= 0 ? '▲' : '▼'} ${Math.abs(game.projection.change * 100).toFixed(1)} pts from ${pct(game.projection.pregameUnder)}</span></div>` : '<div class="live-projection"><small>LIVE UNDER PROJECTION</small><strong>—</strong></div>';
+  const projection = game.projection ? `<div class="live-projection"><small>LIVE U0.5</small><strong>${pct(game.projection.liveUnder05)}</strong><span class="${game.projection.change >= 0 ? 'up' : 'down'}">${game.projection.change >= 0 ? '▲' : '▼'} ${Math.abs(game.projection.change * 100).toFixed(1)} pts</span><small>LIVE U1.5</small><strong class="u15-live">${pct(game.projection.liveUnder15)}</strong></div>` : '<div class="live-projection"><small>LIVE UNDER PROJECTION</small><strong>—</strong></div>';
   const verification = game.pitcherVerified ? '<em class="pitcher-verified">✓ MLB DEFENSE VERIFIED</em>' : '<em class="pitcher-unverified">MLB PLATE APPEARANCE FEED</em>';
   return `<article class="slate-card live"><div class="slate-card-top"><span><i class="live-dot"></i>LIVE · INNING ${game.trackedInning} UNDER .5</span><strong class="bet-status ${game.status.toLowerCase()}">${game.status}</strong></div><h3>${escapeHtml(game.awayTeam)} ${game.awayScore} — ${game.homeScore} ${escapeHtml(game.homeTeam)}</h3><p>${escapeHtml(game.half || '')} ${game.inningOrdinal || game.inning} · ${game.outs} outs · ${game.balls}-${game.strikes} · ${bases}</p>${projection}<div class="slate-pitcher">${game.pitcherPhoto ? `<img src="${escapeHtml(game.pitcherPhoto)}" alt="${escapeHtml(game.pitcher)}">` : ''}<div><small>ON THE MOUND ${verification}</small><strong>${escapeHtml(game.pitcher)}</strong><span>${game.pitchCount ?? '—'} pitches · ERA ${game.pitcherEra ?? '—'} · vs ${escapeHtml(game.batter)}</span></div><b>${game.trackedRuns} RUNS</b></div><small class="last-play">${escapeHtml(game.lastPlay || 'Waiting for next pitch…')} · Updated ${new Date(game.updatedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})}</small></article>`;
 }
