@@ -5,13 +5,16 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
   const linescore = feed.liveData?.linescore || {};
   const play = feed.liveData?.plays?.currentPlay || {};
   const matchup = play.matchup || {};
+  const defensivePitcher = linescore.defense?.pitcher;
+  const matchupPitcher = matchup.pitcher;
+  const activePitcher = defensivePitcher || matchupPitcher;
   const inning = (linescore.innings || []).find(row => row.num === trackedInning);
   const awayRuns = inning?.away?.runs ?? 0;
   const homeRuns = inning?.home?.runs ?? 0;
   const thirdComplete = linescore.currentInning > trackedInning ||
     (linescore.currentInning === trackedInning && linescore.inningState === 'End');
   const trackedRuns = awayRuns + homeRuns;
-  const pitcherId = matchup.pitcher?.id;
+  const pitcherId = activePitcher?.id;
   const side = linescore.isTopInning ? 'home' : 'away';
   const pitcherBox = pitcherId ? feed.liveData?.boxscore?.teams?.[side]?.players?.[`ID${pitcherId}`] : null;
   const pitcherStats = pitcherBox?.stats?.pitching;
@@ -31,8 +34,11 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
     outs: linescore.outs ?? 0,
     balls: play.count?.balls ?? 0,
     strikes: play.count?.strikes ?? 0,
-    pitcher: matchup.pitcher?.fullName || 'TBD',
+    pitcher: activePitcher?.fullName || 'TBD',
     pitcherId: pitcherId || null,
+    pitcherVerified: Boolean(defensivePitcher?.id),
+    pitcherMismatch: Boolean(defensivePitcher?.id && matchupPitcher?.id && defensivePitcher.id !== matchupPitcher.id),
+    pitcherSource: defensivePitcher ? 'MLB live defensive alignment' : matchupPitcher ? 'MLB current plate appearance' : 'unavailable',
     pitcherPhoto: pitcherId ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_240,q_auto:best/v1/people/${pitcherId}/headshot/67/current` : null,
     pitchCount: pitcherStats?.pitchesThrown ?? null,
     pitcherEra: Number.isFinite(Number(pitcherSeasonStats?.era)) ? Number(pitcherSeasonStats.era) : null,
