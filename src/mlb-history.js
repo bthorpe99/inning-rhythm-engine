@@ -1,4 +1,5 @@
 const MLB_API = 'https://statsapi.mlb.com/api/v1';
+const { dateInCentral } = require('./live-game');
 
 function isoDate(date) { return date.toISOString().slice(0, 10); }
 
@@ -105,7 +106,8 @@ function applyPitcherAdjustment(innings, awayPitcher, homePitcher) {
 }
 
 async function loadMlbMatchups() {
-  const asOf = process.env.AS_OF_DATE ? new Date(`${process.env.AS_OF_DATE}T12:00:00Z`) : new Date();
+  const asOfDate = process.env.AS_OF_DATE || dateInCentral();
+  const asOf = new Date(`${asOfDate}T12:00:00Z`);
   const end = new Date(asOf); end.setUTCDate(end.getUTCDate() - 1);
   const start = new Date(asOf); start.setUTCDate(start.getUTCDate() - 190);
   const upcomingEnd = new Date(asOf); upcomingEnd.setUTCDate(upcomingEnd.getUTCDate() + 2);

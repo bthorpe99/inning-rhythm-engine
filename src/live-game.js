@@ -58,7 +58,13 @@ function liveUnderProjection(game, pregameUnder) {
   return { pregameUnder, liveUnder, change: liveUnder - pregameUnder };
 }
 
-async function loadLiveSlate(date = new Date().toISOString().slice(0, 10), projections = []) {
+function dateInCentral(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
+  const value = Object.fromEntries(parts.map(part => [part.type,part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
+async function loadLiveSlate(date = dateInCentral(), projections = []) {
   const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&gameTypes=R&hydrate=team,probablePitcher,linescore`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`MLB schedule returned ${response.status}`);
@@ -88,4 +94,4 @@ async function loadLiveSlate(date = new Date().toISOString().slice(0, 10), proje
   }));
 }
 
-module.exports = { loadLiveGame, loadLiveSlate, liveUnderProjection };
+module.exports = { loadLiveGame, loadLiveSlate, liveUnderProjection, dateInCentral };

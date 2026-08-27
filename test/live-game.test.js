@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { liveUnderProjection } = require('../src/live-game');
+const { liveUnderProjection, dateInCentral } = require('../src/live-game');
 
 test('tracked live endpoint configuration is numeric', () => {
   assert.equal(Number.isInteger(Number('824234')), true);
@@ -17,4 +17,8 @@ test('live under probability rises with outs and falls with runners', () => {
 
 test('a run makes under 0.5 probability zero', () => {
   assert.equal(liveUnderProjection({trackedRuns:1},.6).liveUnder,0);
+});
+
+test('slate date uses America/Chicago instead of UTC rollover', () => {
+  assert.equal(dateInCentral(new Date('2026-08-27T02:00:00Z')),'2026-08-26');
 });
