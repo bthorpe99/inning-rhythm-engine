@@ -80,8 +80,8 @@ function pitcher(photo, name, team, profile) {
 }
 
 function oddsPanel(game) {
-  if (!game.odds) return `<div class="odds-panel unavailable"><b>ODDS</b><span>${game.oddsStatus === 'KEY_REQUIRED' ? 'Connect ODDS_API_KEY for live moneyline, total, and first-inning prices.' : 'No matching market returned.'}</span></div>`;
-  return `<div class="odds-panel"><b>LIVE ODDS</b>${marketBox('Moneyline', game.odds.moneyline)}${marketBox('Game total', game.odds.total)}${marketBox('1st inning O/U', game.odds.firstInningTotal)}</div>`;
+  if (!game.odds) return `<div class="odds-panel unavailable"><b>ODDS</b><span>No matching public market returned.</span></div>`;
+  return `<div class="odds-panel"><b>${game.oddsStatus === 'FREE_PUBLIC' ? 'FREE PUBLIC ODDS' : 'LIVE ODDS'}</b>${marketBox('Moneyline', game.odds.moneyline)}${marketBox('Game total', game.odds.total)}${marketBox('1st inning O/U', game.odds.firstInningTotal)}</div>`;
 }
 
 function marketBox(label, market) {
