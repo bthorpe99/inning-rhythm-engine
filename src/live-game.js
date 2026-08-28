@@ -1,4 +1,32 @@
 const { loadPitcherRankings } = require('./pitcher-rankings');
+const pregameCache = new Map();
+
+function lineupFromBoxTeam(team = {}) {
+  return (team.battingOrder || []).map((rawId,index)=>{
+    const id=Number(rawId);
+    const player=team.players?.[`ID${id}`] || {};
+    const batting=player.seasonStats?.batting || {};
+    return { order:index+1,id,name:player.person?.fullName||'TBD',position:player.position?.abbreviation||'',batSide:player.person?.batSide?.code||'',photo:`https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${id}/headshot/67/current`,ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(Number(batting.homeRuns))?Number(batting.homeRuns):null };
+  });
+}
+
+async function loadPregameLineups(gamePk) {
+  const cached=pregameCache.get(Number(gamePk));
+  if(cached&&Date.now()-cached.loadedAt<60000) return cached.value;
+  try {
+    const response=await fetch(`https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`);
+    if(!response.ok) throw new Error(`MLB pregame feed returned ${response.status}`);
+    const feed=await response.json();
+    const box=feed.liveData?.boxscore?.teams||{};
+    const value={awayLineup:lineupFromBoxTeam(box.away),homeLineup:lineupFromBoxTeam(box.home)};
+    value.lineupsConfirmed=value.awayLineup.length===9&&value.homeLineup.length===9;
+    value.lineupUpdatedAt=feed.metaData?.timeStamp||null;
+    pregameCache.set(Number(gamePk),{loadedAt:Date.now(),value});
+    return value;
+  } catch {
+    return {awayLineup:[],homeLineup:[],lineupsConfirmed:false,lineupUpdatedAt:null};
+  }
+}
 
 async function loadLiveGame(gamePk, trackedInning = 3) {
   const response = await fetch(`https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`);
@@ -145,10 +173,14 @@ async function loadLiveSlate(date = dateInCentral(), projections = []) {
       runs:(row.away?.runs || 0)+(row.home?.runs || 0),
       complete:Number.isFinite(row.away?.runs) && Number.isFinite(row.home?.runs)
     }));
+    const detailedState=game.status?.detailedState;
+    const lineupInfo=state==='Preview'&&['Pre-Game','Warmup'].includes(detailedState) ? await loadPregameLineups(game.gamePk) : {awayLineup:[],homeLineup:[],lineupsConfirmed:false};
+    const awayPitcherId=game.teams?.away?.probablePitcher?.id||null;
+    const homePitcherId=game.teams?.home?.probablePitcher?.id||null;
     return {
       kind: state === 'Preview' ? 'UPCOMING' : 'FINAL',
       gamePk: game.gamePk,
-      detailedState: game.status?.detailedState,
+      detailedState,
       awayTeam: game.teams?.away?.team?.name,
       homeTeam: game.teams?.home?.team?.name,
       awayScore: game.teams?.away?.score ?? 0,
@@ -156,9 +188,14 @@ async function loadLiveSlate(date = dateInCentral(), projections = []) {
       startsAt: game.gameDate,
       awayPitcher: game.teams?.away?.probablePitcher?.fullName || 'TBD',
       homePitcher: game.teams?.home?.probablePitcher?.fullName || 'TBD',
+      awayPitcherId,
+      homePitcherId,
+      awayPitcherPhoto:awayPitcherId?`https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${awayPitcherId}/headshot/67/current`:null,
+      homePitcherPhoto:homePitcherId?`https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${homePitcherId}/headshot/67/current`:null,
+      ...lineupInfo,
       inningResults
     };
   }));
 }
 
-module.exports = { loadLiveGame, loadLiveSlate, liveUnderProjection, dateInCentral };
+module.exports = { loadLiveGame, loadLiveSlate, loadPregameLineups, lineupFromBoxTeam, liveUnderProjection, dateInCentral };

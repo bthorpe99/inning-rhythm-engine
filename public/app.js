@@ -119,7 +119,8 @@ async function loadLive() {
 function liveCard(game) {
   if (game.kind !== 'LIVE') {
     const time = game.startsAt ? new Date(game.startsAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}) : game.detailedState;
-    return `<article class="slate-card upcoming"><span class="slate-kind">${escapeHtml(game.kind)}</span><h3>${escapeHtml(game.awayTeam)} at ${escapeHtml(game.homeTeam)}</h3><strong>${escapeHtml(time || '')}</strong><p>Probable: ${escapeHtml(game.awayPitcher || 'TBD')} vs ${escapeHtml(game.homePitcher || 'TBD')}</p>${inningResultStrip(game)}</article>`;
+    const pitchers=`<div class="pregame-pitchers">${pregamePitcher(game.awayPitcherPhoto,game.awayPitcher,game.awayTeam)}<b>VS</b>${pregamePitcher(game.homePitcherPhoto,game.homePitcher,game.homeTeam)}</div>`;
+    return `<article class="slate-card upcoming"><span class="slate-kind">${escapeHtml(game.kind)}</span><h3>${escapeHtml(game.awayTeam)} at ${escapeHtml(game.homeTeam)}</h3><strong>${escapeHtml(time || '')}</strong>${pitchers}${pregameLineups(game)}${inningResultStrip(game)}</article>`;
   }
   const bases = `${game.onFirst ? '●' : '○'} ${game.onSecond ? '●' : '○'} ${game.onThird ? '●' : '○'}`;
   const projection = game.projection ? `<div class="live-projection"><small>LIVE U0.5</small><strong>${pct(game.projection.liveUnder05)}</strong><span class="${game.projection.change >= 0 ? 'up' : 'down'}">${game.projection.change >= 0 ? '▲' : '▼'} ${Math.abs(game.projection.change * 100).toFixed(1)} pts</span><small>LIVE O0.5</small><strong class="over-live">${pct(opposite(game.projection.liveUnder05))}</strong><span></span><small>LIVE U1.5</small><strong class="u15-live">${pct(game.projection.liveUnder15)}</strong><span></span><small>LIVE O1.5</small><strong class="over-live">${pct(opposite(game.projection.liveUnder15))}</strong><span></span></div>` : '<div class="live-projection"><small>LIVE UNDER / OVER</small><strong>—</strong></div>';
@@ -131,6 +132,16 @@ function liveCard(game) {
   const lineupLabel=game.projection?.lineupFactor<.985?'POWER LINEUP — UNDER REDUCED':game.projection?.lineupFactor>1.015?'WEAK LINEUP — UNDER BOOSTED':'NEUTRAL LINEUP';
   const lineupVerification=game.lineupVerified?'✓ MLB ORDER VERIFIED':'⚠ CURRENT BATTER VERIFIED · NEXT ORDER FALLBACK';
   return `<article class="slate-card live"><div class="slate-card-top"><span><i class="live-dot"></i>LIVE · INNING ${game.trackedInning} UNDER .5</span><strong class="bet-status ${game.status.toLowerCase()}">${game.status}</strong></div><h3>${escapeHtml(game.awayTeam)} ${game.awayScore} — ${game.homeScore} ${escapeHtml(game.homeTeam)}</h3><p>${escapeHtml(game.half || '')} ${game.inningOrdinal || game.inning} · ${game.outs} outs · ${game.balls}-${game.strikes} · ${bases}</p>${changeBadge}${projection}${inningResultStrip(game)}<div class="lineup-pressure"><small>${lineupVerification} · CURRENT HALF · ${lineupLabel} · AVG OPS ${game.lineupOps?.toFixed(3)??'—'}</small><div>${dueUp}</div></div><div class="lineup-pressure next-half"><small>✓ MLB NEXT-HALF ORDER · ${escapeHtml(game.nextHalfLabel||'NEXT HALF')} · ${escapeHtml(game.nextHalfTeam||'')}</small><div>${nextHalfDueUp}</div></div><div class="slate-pitcher">${game.pitcherPhoto ? `<img src="${escapeHtml(game.pitcherPhoto)}" alt="${escapeHtml(game.pitcher)}">` : ''}<div><small>ON THE MOUND ${verification}</small><strong>${escapeHtml(game.pitcher)} <em class="league-rank">${liveRank}</em></strong><span>${game.pitchCount ?? '—'} pitches · ERA ${game.pitcherEra ?? '—'} · vs ${escapeHtml(game.batter)}</span></div><b>${game.trackedRuns} RUNS</b></div><small class="last-play">${escapeHtml(game.lastPlay || 'Waiting for next pitch…')} · Updated ${new Date(game.updatedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})}</small></article>`;
+}
+
+function pregamePitcher(photo,name,team) {
+  return `<div>${photo?`<img src="${escapeHtml(photo)}" alt="${escapeHtml(name||'Pitcher')}" loading="lazy">`:''}<span><small>${escapeHtml(team||'')}</small><strong>${escapeHtml(name||'TBD')}</strong></span></div>`;
+}
+
+function pregameLineups(game) {
+  if(!game.awayLineup?.length&&!game.homeLineup?.length) return `<div class="lineup-not-posted">BATTING ORDERS NOT YET POSTED BY MLB</div>`;
+  const team=(name,rows)=>`<div><h4>${escapeHtml(name)}</h4>${rows.map(row=>`<article>${row.photo?`<img src="${escapeHtml(row.photo)}" alt="${escapeHtml(row.name)}" loading="lazy">`:''}<b>${row.order}</b><span><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.position)} · ${escapeHtml(row.batSide)} · OPS ${row.ops?.toFixed(3)??'—'}</small></span></article>`).join('')}</div>`;
+  return `<div class="pregame-lineups"><header>${game.lineupsConfirmed?'✓ MLB CONFIRMED BATTING ORDERS':'⚠ PARTIAL MLB LINEUPS'}</header><section>${team(game.awayTeam,game.awayLineup||[])}${team(game.homeTeam,game.homeLineup||[])}</section></div>`;
 }
 
 function inningResultStrip(game) {
