@@ -32,9 +32,10 @@ function renderUnderBoard() {
     .sort((a,b) => b.row.predictedUnder - a.row.predictedUnder).slice(0,12);
   const settled = ranked.map(item => ({...item,result:signalResult(item.game,item.row)}));
   const wins=settled.filter(item=>item.result==='WON').length, losses=settled.filter(item=>item.result==='LOST').length;
-  document.querySelector('#underBoard').innerHTML = `<div class="board-record"><b>${wins}-${losses}</b><span>SETTLED TODAY</span></div>`+settled.map(({game,row,result}, index) => `<article class="under-rank ${result.toLowerCase().replace(' ','-')}">
+  const open=settled.filter(item=>!['WON','LOST','NO ACTION'].includes(item.result)).length;
+  document.querySelector('#underBoard').innerHTML = `<div class="board-record"><div><b>${wins}</b><span>WINS TODAY</span></div><div><b class="loss-count">${losses}</b><span>LOSSES TODAY</span></div><div><b class="open-count">${open}</b><span>OPEN / UPCOMING</span></div></div>`+settled.map(({game,row,result}, index) => `<article class="under-rank ${result.toLowerCase().replace(' ','-')}">
     <span class="rank">${index + 1}</span><div><strong>${escapeHtml(game.event)}</strong><small>Inning ${row.inning} · ${row.combinedUnderCount}/${row.combinedSampleSize} historical</small></div>
-    <div class="rank-projections"><b>U0.5 ${pct(row.predictedUnder)}</b><span>O0.5 ${pct(opposite(row.predictedUnder))}</span><b>U1.5 ${pct(row.predictedUnder15)}</b><span>O1.5 ${pct(opposite(row.predictedUnder15))}</span></div><em class="result-badge">${result}</em>
+    <div class="rank-projections"><b>U0.5 ${pct(row.predictedUnder)}</b><span>O0.5 ${pct(opposite(row.predictedUnder))}</span><b>U1.5 ${pct(row.predictedUnder15)}</b><span>O1.5 ${pct(opposite(row.predictedUnder15))}</span></div><em class="result-badge">TODAY — ${result}</em>
   </article>`).join('');
 }
 
