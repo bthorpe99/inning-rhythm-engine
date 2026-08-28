@@ -84,7 +84,7 @@ const server = http.createServer(async (req, res) => {
     const filePath = path.join(__dirname, 'public', safePath);
     if (!filePath.startsWith(path.join(__dirname, 'public')) || !fs.existsSync(filePath)) return json(res, 404, { error: 'Not found' });
     const type = filePath.endsWith('.css') ? 'text/css' : filePath.endsWith('.js') ? 'text/javascript' : 'text/html';
-    res.writeHead(200, { 'content-type': `${type}; charset=utf-8` });
+    res.writeHead(200, { 'content-type': `${type}; charset=utf-8`, 'cache-control':'no-store, max-age=0', 'pragma':'no-cache' });
     fs.createReadStream(filePath).pipe(res);
   } catch (error) { json(res, 500, { error: error.message }); }
 });
