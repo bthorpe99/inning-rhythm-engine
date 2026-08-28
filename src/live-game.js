@@ -37,6 +37,20 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
   });
   const lineupOpsValues=dueUp.map(row=>row.ops).filter(Number.isFinite);
   const lineupOps=lineupOpsValues.length?lineupOpsValues.reduce((sum,value)=>sum+value,0)/lineupOpsValues.length:null;
+  const nextBattingSide = linescore.isTopInning ? 'home' : 'away';
+  const nextBattingTeam = feed.liveData?.boxscore?.teams?.[nextBattingSide] || {};
+  const nextOrder = nextBattingTeam.battingOrder || [];
+  const nextHalfName = nextBattingSide === 'away' ? 'top' : 'bottom';
+  const lastNextSidePlay = [...(feed.liveData?.plays?.allPlays || [])].reverse().find(row=>row.about?.halfInning===nextHalfName&&row.matchup?.batter?.id);
+  const lastNextBatterIndex = nextOrder.findIndex(id=>Number(id)===Number(lastNextSidePlay?.matchup?.batter?.id));
+  const nextStartIndex = lastNextBatterIndex >= 0 ? (lastNextBatterIndex+1)%nextOrder.length : 0;
+  const nextHalfDueUp = Array.from({length:Math.min(4,nextOrder.length)},(_,offset)=>{
+    const id=Number(nextOrder[(nextStartIndex+offset)%nextOrder.length]);
+    const player=nextBattingTeam.players?.[`ID${id}`] || {};
+    const batting=player.seasonStats?.batting || {};
+    return { id,name:player.person?.fullName||'TBD',ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(Number(batting.homeRuns))?Number(batting.homeRuns):null,avg:Number.isFinite(Number(batting.avg))?Number(batting.avg):null };
+  });
+  const nextHalfTeam = feed.gameData?.teams?.[nextBattingSide]?.name || nextBattingSide;
   const season = Number(feed.gameData?.datetime?.officialDate?.slice(0,4)) || new Date().getUTCFullYear();
   const leagueRanks = await loadPitcherRankings(season);
   const pitcherLeagueRanking = leagueRanks.rankings.get(Number(pitcherId)) || null;
@@ -76,6 +90,9 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
     lineupOps,
     lineupVerified,
     lineupSource:'MLB live box score batting order',
+    nextHalfDueUp,
+    nextHalfTeam,
+    nextHalfLabel:linescore.isTopInning?`BOTTOM ${linescore.currentInning}`:`TOP ${linescore.currentInning+1}`,
     onFirst: Boolean(linescore.offense?.first),
     onSecond: Boolean(linescore.offense?.second),
     onThird: Boolean(linescore.offense?.third),
