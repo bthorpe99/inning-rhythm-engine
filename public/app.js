@@ -59,14 +59,14 @@ function renderInningCharts() {
     <div class="legend"><span><i class="cell under-hit"></i>Under 0.5</span><span><i class="cell under15-hit"></i>Under 1.5</span><span><i class="cell scored"></i>2+ runs</span></div></div>
     ${oddsPanel(game)}
     <div class="rhythm-table">
-      <div class="rhythm-head"><b>INN</b><span>60-GAME UNDER RHYTHM — AWAY / HOME</span><b>UNDER / OVER</b></div>
+      <div class="rhythm-head"><b>INN</b><span>60-GAME UNDER RHYTHM — AWAY / HOME</span><b>PROJECTED UNDER / OVER</b></div>
       ${game.innings.map(row => `<div class="rhythm-row">
         <strong>${row.inning}</strong><div class="team-strips">
           <div class="strip-line"><label>${escapeHtml(game.awayTeam || 'Away')} · U0.5</label><div class="strip">${patternCells(row.awayUnderPattern,'under-hit')}</div></div>
           <div class="strip-line"><label>${escapeHtml(game.awayTeam || 'Away')} · U1.5</label><div class="strip">${patternCells(row.awayUnder15Pattern,'under15-hit')}</div></div>
           <div class="strip-line"><label>${escapeHtml(game.homeTeam || 'Home')} · U0.5</label><div class="strip">${patternCells(row.homeUnderPattern,'under-hit')}</div></div>
           <div class="strip-line"><label>${escapeHtml(game.homeTeam || 'Home')} · U1.5</label><div class="strip">${patternCells(row.homeUnder15Pattern,'under15-hit')}</div></div>
-        </div><div class="projection ${row.predictedUnder >= .6 ? 'strong-under' : ''}"><strong>U0.5 ${pct(row.predictedUnder)}</strong><b class="over-proj">O0.5 ${pct(opposite(row.predictedUnder))}</b><span>${row.combinedUnderCount}/${row.combinedSampleSize} under</span><strong class="under15-proj">U1.5 ${pct(row.predictedUnder15)}</strong><b class="over-proj">O1.5 ${pct(opposite(row.predictedUnder15))}</b><span>${row.combinedUnder15Count}/${row.combinedSampleSize} under</span>${row.pitcherAdjusted ? `<em>Pitcher adjusted ${Math.round(row.pitcherWeight*100)}%</em>` : ''}</div>
+        </div><div class="projection ${row.predictedUnder >= .6 ? 'strong-under' : ''}"><div class="projection-line"><strong>U0.5 ${pct(row.predictedUnder)}</strong><b class="over-proj">O0.5 ${pct(opposite(row.predictedUnder))}</b></div><span>${row.combinedUnderCount}/${row.combinedSampleSize} under</span><div class="projection-line second-line"><strong class="under15-proj">U1.5 ${pct(row.predictedUnder15)}</strong><b class="over-proj">O1.5 ${pct(opposite(row.predictedUnder15))}</b></div><span>${row.combinedUnder15Count}/${row.combinedSampleSize} under</span>${row.pitcherAdjusted ? `<em>Pitcher adjusted ${Math.round(row.pitcherWeight*100)}%</em>` : ''}</div>
       </div>`).join('')}
     </div></article>`).join('') : '<div class="empty">No inning-level history is available from the current provider.</div>';
 }
