@@ -1,4 +1,5 @@
 let state = { candidates: [] };
+let liveState = [];
 const pct = value => `${(value * 100).toFixed(1)}%`;
 const money = value => value > 0 ? `+${value}` : String(value);
 const escapeHtml = value => String(value).replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -28,10 +29,24 @@ function render() {
 function renderUnderBoard() {
   const ranked = state.candidates.flatMap(game => (game.innings || []).map(row => ({game,row})))
     .sort((a,b) => b.row.predictedUnder - a.row.predictedUnder).slice(0,12);
-  document.querySelector('#underBoard').innerHTML = ranked.map(({game,row}, index) => `<article class="under-rank">
-    <span class="rank">${index + 1}</span><div><strong>${escapeHtml(game.event)}</strong><small>Inning ${row.inning} · streaks ${row.awayUnderStreak}/${row.homeUnderStreak}</small></div>
-    <b>${pct(row.predictedUnder)}</b><small>${row.combinedUnderCount}/${row.combinedSampleSize} under</small>
+  const settled = ranked.map(item => ({...item,result:signalResult(item.game,item.row)}));
+  const wins=settled.filter(item=>item.result==='WON').length, losses=settled.filter(item=>item.result==='LOST').length;
+  document.querySelector('#underBoard').innerHTML = `<div class="board-record"><b>${wins}-${losses}</b><span>SETTLED TODAY</span></div>`+settled.map(({game,row,result}, index) => `<article class="under-rank ${result.toLowerCase().replace(' ','-')}">
+    <span class="rank">${index + 1}</span><div><strong>${escapeHtml(game.event)}</strong><small>Inning ${row.inning} · ${row.combinedUnderCount}/${row.combinedSampleSize} historical</small></div>
+    <b>${pct(row.predictedUnder)}</b><em class="result-badge">${result}</em>
   </article>`).join('');
+}
+
+function signalResult(game,row) {
+  const gamePk=Number(String(game.id).replace('mlb-',''));
+  const live=liveState.find(item=>item.gamePk===gamePk);
+  if(!live) return 'UPCOMING';
+  const result=(live.inningResults||[]).find(item=>item.inning===row.inning);
+  if(result?.runs>0) return 'LOST';
+  if(result?.complete && result.runs===0) return 'WON';
+  if(live.kind==='FINAL') return 'NO ACTION';
+  if(live.kind==='LIVE' && live.inning===row.inning) return 'LIVE';
+  return live.kind==='UPCOMING' ? 'UPCOMING' : 'PENDING';
 }
 
 function renderInningCharts() {
@@ -81,7 +96,9 @@ async function loadLive() {
     if (!Array.isArray(games)) throw new Error(games.error || 'Invalid live slate');
     const order = {LIVE:0,UPCOMING:1,FINAL:2};
     const ordered = games.sort((a,b) => order[a.kind] - order[b.kind]);
+    liveState = ordered;
     document.querySelector('#liveMonitor').innerHTML = ordered.map(liveCard).join('');
+    renderUnderBoard();
   } catch (error) {
     document.querySelector('#liveMonitor').innerHTML = `<div class="live-loading">Live feed unavailable: ${escapeHtml(error.message)}</div>`;
   }

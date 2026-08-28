@@ -20,6 +20,13 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
   const pitcherStats = pitcherBox?.stats?.pitching;
   const pitcherSeasonStats = pitcherBox?.seasonStats?.pitching;
   const status = trackedRuns > 0 ? 'LOST' : thirdComplete ? 'WON' : 'PENDING';
+  const inningResults = (linescore.innings || []).map(row => {
+    const awayRecorded = Number.isFinite(row.away?.runs);
+    const homeRecorded = Number.isFinite(row.home?.runs);
+    const runs = (row.away?.runs || 0) + (row.home?.runs || 0);
+    const complete = row.num < linescore.currentInning || (row.num === linescore.currentInning && linescore.inningState === 'End');
+    return { inning:row.num, runs, complete:complete && awayRecorded && homeRecorded, awayRecorded, homeRecorded };
+  });
 
   return {
     gamePk: Number(gamePk), trackedInning, trackedRuns, status,
@@ -47,6 +54,7 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
     onSecond: Boolean(linescore.offense?.second),
     onThird: Boolean(linescore.offense?.third),
     lastPlay: play.result?.description || play.playEvents?.at(-1)?.details?.description || '',
+    inningResults,
     updatedAt: new Date().toISOString()
   };
 }
@@ -88,6 +96,11 @@ async function loadLiveSlate(date = dateInCentral(), projections = []) {
       const pregameUnder = matchup?.innings?.find(row => row.inning === activeInning)?.predictedUnder;
       return { kind: 'LIVE', ...live, projection: liveUnderProjection(live, pregameUnder) };
     }
+    const inningResults = (game.linescore?.innings || []).map(row => ({
+      inning:row.num,
+      runs:(row.away?.runs || 0)+(row.home?.runs || 0),
+      complete:Number.isFinite(row.away?.runs) && Number.isFinite(row.home?.runs)
+    }));
     return {
       kind: state === 'Preview' ? 'UPCOMING' : 'FINAL',
       gamePk: game.gamePk,
@@ -98,7 +111,8 @@ async function loadLiveSlate(date = dateInCentral(), projections = []) {
       homeScore: game.teams?.home?.score ?? 0,
       startsAt: game.gameDate,
       awayPitcher: game.teams?.away?.probablePitcher?.fullName || 'TBD',
-      homePitcher: game.teams?.home?.probablePitcher?.fullName || 'TBD'
+      homePitcher: game.teams?.home?.probablePitcher?.fullName || 'TBD',
+      inningResults
     };
   }));
 }
