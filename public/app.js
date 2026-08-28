@@ -1,6 +1,7 @@
 let state = { candidates: [] };
 let liveState = [];
 const pct = value => `${(value * 100).toFixed(1)}%`;
+const opposite = value => Math.max(0, Math.min(1, 1 - value));
 const money = value => value > 0 ? `+${value}` : String(value);
 const escapeHtml = value => String(value).replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 
@@ -33,7 +34,7 @@ function renderUnderBoard() {
   const wins=settled.filter(item=>item.result==='WON').length, losses=settled.filter(item=>item.result==='LOST').length;
   document.querySelector('#underBoard').innerHTML = `<div class="board-record"><b>${wins}-${losses}</b><span>SETTLED TODAY</span></div>`+settled.map(({game,row,result}, index) => `<article class="under-rank ${result.toLowerCase().replace(' ','-')}">
     <span class="rank">${index + 1}</span><div><strong>${escapeHtml(game.event)}</strong><small>Inning ${row.inning} · ${row.combinedUnderCount}/${row.combinedSampleSize} historical</small></div>
-    <b>${pct(row.predictedUnder)}</b><em class="result-badge">${result}</em>
+    <div class="rank-projections"><b>U0.5 ${pct(row.predictedUnder)}</b><span>O0.5 ${pct(opposite(row.predictedUnder))}</span><b>U1.5 ${pct(row.predictedUnder15)}</b><span>O1.5 ${pct(opposite(row.predictedUnder15))}</span></div><em class="result-badge">${result}</em>
   </article>`).join('');
 }
 
@@ -57,14 +58,14 @@ function renderInningCharts() {
     <div class="legend"><span><i class="cell under-hit"></i>Under 0.5</span><span><i class="cell under15-hit"></i>Under 1.5</span><span><i class="cell scored"></i>2+ runs</span></div></div>
     ${oddsPanel(game)}
     <div class="rhythm-table">
-      <div class="rhythm-head"><b>INN</b><span>60-GAME UNDER RHYTHM — AWAY / HOME</span><b>PROJECTED UNDER</b></div>
+      <div class="rhythm-head"><b>INN</b><span>60-GAME UNDER RHYTHM — AWAY / HOME</span><b>UNDER / OVER</b></div>
       ${game.innings.map(row => `<div class="rhythm-row">
         <strong>${row.inning}</strong><div class="team-strips">
           <div class="strip-line"><label>${escapeHtml(game.awayTeam || 'Away')} · U0.5</label><div class="strip">${patternCells(row.awayUnderPattern,'under-hit')}</div></div>
           <div class="strip-line"><label>${escapeHtml(game.awayTeam || 'Away')} · U1.5</label><div class="strip">${patternCells(row.awayUnder15Pattern,'under15-hit')}</div></div>
           <div class="strip-line"><label>${escapeHtml(game.homeTeam || 'Home')} · U0.5</label><div class="strip">${patternCells(row.homeUnderPattern,'under-hit')}</div></div>
           <div class="strip-line"><label>${escapeHtml(game.homeTeam || 'Home')} · U1.5</label><div class="strip">${patternCells(row.homeUnder15Pattern,'under15-hit')}</div></div>
-        </div><div class="projection ${row.predictedUnder >= .6 ? 'strong-under' : ''}"><strong>U0.5 ${pct(row.predictedUnder)}</strong><span>${row.combinedUnderCount}/${row.combinedSampleSize} hit</span><strong class="under15-proj">U1.5 ${pct(row.predictedUnder15)}</strong><span>${row.combinedUnder15Count}/${row.combinedSampleSize} hit</span>${row.pitcherAdjusted ? `<em>Pitcher adjusted ${Math.round(row.pitcherWeight*100)}%</em>` : ''}</div>
+        </div><div class="projection ${row.predictedUnder >= .6 ? 'strong-under' : ''}"><strong>U0.5 ${pct(row.predictedUnder)}</strong><b class="over-proj">O0.5 ${pct(opposite(row.predictedUnder))}</b><span>${row.combinedUnderCount}/${row.combinedSampleSize} under</span><strong class="under15-proj">U1.5 ${pct(row.predictedUnder15)}</strong><b class="over-proj">O1.5 ${pct(opposite(row.predictedUnder15))}</b><span>${row.combinedUnder15Count}/${row.combinedSampleSize} under</span>${row.pitcherAdjusted ? `<em>Pitcher adjusted ${Math.round(row.pitcherWeight*100)}%</em>` : ''}</div>
       </div>`).join('')}
     </div></article>`).join('') : '<div class="empty">No inning-level history is available from the current provider.</div>';
 }
@@ -111,7 +112,7 @@ function liveCard(game) {
     return `<article class="slate-card upcoming"><span class="slate-kind">${escapeHtml(game.kind)}</span><h3>${escapeHtml(game.awayTeam)} at ${escapeHtml(game.homeTeam)}</h3><strong>${escapeHtml(time || '')}</strong><p>Probable: ${escapeHtml(game.awayPitcher || 'TBD')} vs ${escapeHtml(game.homePitcher || 'TBD')}</p></article>`;
   }
   const bases = `${game.onFirst ? '●' : '○'} ${game.onSecond ? '●' : '○'} ${game.onThird ? '●' : '○'}`;
-  const projection = game.projection ? `<div class="live-projection"><small>LIVE U0.5</small><strong>${pct(game.projection.liveUnder05)}</strong><span class="${game.projection.change >= 0 ? 'up' : 'down'}">${game.projection.change >= 0 ? '▲' : '▼'} ${Math.abs(game.projection.change * 100).toFixed(1)} pts</span><small>LIVE U1.5</small><strong class="u15-live">${pct(game.projection.liveUnder15)}</strong></div>` : '<div class="live-projection"><small>LIVE UNDER PROJECTION</small><strong>—</strong></div>';
+  const projection = game.projection ? `<div class="live-projection"><small>LIVE U0.5</small><strong>${pct(game.projection.liveUnder05)}</strong><span class="${game.projection.change >= 0 ? 'up' : 'down'}">${game.projection.change >= 0 ? '▲' : '▼'} ${Math.abs(game.projection.change * 100).toFixed(1)} pts</span><small>LIVE O0.5</small><strong class="over-live">${pct(opposite(game.projection.liveUnder05))}</strong><span></span><small>LIVE U1.5</small><strong class="u15-live">${pct(game.projection.liveUnder15)}</strong><span></span><small>LIVE O1.5</small><strong class="over-live">${pct(opposite(game.projection.liveUnder15))}</strong><span></span></div>` : '<div class="live-projection"><small>LIVE UNDER / OVER</small><strong>—</strong></div>';
   const verification = game.pitcherVerified ? '<em class="pitcher-verified">✓ MLB DEFENSE VERIFIED</em>' : '<em class="pitcher-unverified">MLB PLATE APPEARANCE FEED</em>';
   const liveRank = game.pitcherLeagueRanking ? `#${game.pitcherLeagueRanking.rank} OF ${game.pitcherLeagueRanking.total} MLB` : 'MLB RANK NR';
   return `<article class="slate-card live"><div class="slate-card-top"><span><i class="live-dot"></i>LIVE · INNING ${game.trackedInning} UNDER .5</span><strong class="bet-status ${game.status.toLowerCase()}">${game.status}</strong></div><h3>${escapeHtml(game.awayTeam)} ${game.awayScore} — ${game.homeScore} ${escapeHtml(game.homeTeam)}</h3><p>${escapeHtml(game.half || '')} ${game.inningOrdinal || game.inning} · ${game.outs} outs · ${game.balls}-${game.strikes} · ${bases}</p>${projection}<div class="slate-pitcher">${game.pitcherPhoto ? `<img src="${escapeHtml(game.pitcherPhoto)}" alt="${escapeHtml(game.pitcher)}">` : ''}<div><small>ON THE MOUND ${verification}</small><strong>${escapeHtml(game.pitcher)} <em class="league-rank">${liveRank}</em></strong><span>${game.pitchCount ?? '—'} pitches · ERA ${game.pitcherEra ?? '—'} · vs ${escapeHtml(game.batter)}</span></div><b>${game.trackedRuns} RUNS</b></div><small class="last-play">${escapeHtml(game.lastPlay || 'Waiting for next pitch…')} · Updated ${new Date(game.updatedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})}</small></article>`;
