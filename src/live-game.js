@@ -33,7 +33,7 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
   const dueUp = dueIds.map((id,offset)=>{
     const player=battingTeam.players?.[`ID${id}`] || {};
     const batting=player.seasonStats?.batting || {};
-    return { id,name:player.person?.fullName || (id===batterId?matchup.batter?.fullName:null) || 'TBD',current:offset===0,ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(Number(batting.homeRuns))?Number(batting.homeRuns):null,avg:Number.isFinite(Number(batting.avg))?Number(batting.avg):null };
+    return { id,name:player.person?.fullName || (id===batterId?matchup.batter?.fullName:null) || 'TBD',photo:`https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${id}/headshot/67/current`,current:offset===0,ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(Number(batting.homeRuns))?Number(batting.homeRuns):null,avg:Number.isFinite(Number(batting.avg))?Number(batting.avg):null };
   });
   const lineupOpsValues=dueUp.map(row=>row.ops).filter(Number.isFinite);
   const lineupOps=lineupOpsValues.length?lineupOpsValues.reduce((sum,value)=>sum+value,0)/lineupOpsValues.length:null;
@@ -48,7 +48,7 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
     const id=Number(nextOrder[(nextStartIndex+offset)%nextOrder.length]);
     const player=nextBattingTeam.players?.[`ID${id}`] || {};
     const batting=player.seasonStats?.batting || {};
-    return { id,name:player.person?.fullName||'TBD',ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(Number(batting.homeRuns))?Number(batting.homeRuns):null,avg:Number.isFinite(Number(batting.avg))?Number(batting.avg):null };
+    return { id,name:player.person?.fullName||'TBD',photo:`https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${id}/headshot/67/current`,ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(Number(batting.homeRuns))?Number(batting.homeRuns):null,avg:Number.isFinite(Number(batting.avg))?Number(batting.avg):null };
   });
   const nextHalfTeam = feed.gameData?.teams?.[nextBattingSide]?.name || nextBattingSide;
   const season = Number(feed.gameData?.datetime?.officialDate?.slice(0,4)) || new Date().getUTCFullYear();
