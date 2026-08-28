@@ -3,8 +3,10 @@ const assert=require('node:assert/strict');
 const {lineupFromBoxTeam}=require('../src/live-game');
 
 test('pregame lineup follows MLB batting order and player IDs',()=>{
-  const rows=lineupFromBoxTeam({battingOrder:[2,1],players:{ID1:{person:{fullName:'Second',batSide:{code:'L'}},position:{abbreviation:'RF'},seasonStats:{batting:{ops:'.800',homeRuns:10}}},ID2:{person:{fullName:'First',batSide:{code:'R'}},position:{abbreviation:'SS'},seasonStats:{batting:{ops:'.750',homeRuns:5}}}}});
+  const rows=lineupFromBoxTeam({battingOrder:[2,1],players:{ID1:{person:{fullName:'Second',batSide:{code:'L'}},position:{abbreviation:'RF'},seasonStats:{batting:{ops:'.800',homeRuns:10,gamesPlayed:100,atBats:400}}},ID2:{person:{fullName:'First',batSide:{code:'R'}},position:{abbreviation:'SS'},seasonStats:{batting:{ops:'.750',homeRuns:5,gamesPlayed:50,atBats:150}}}}});
   assert.deepEqual(rows.map(row=>row.name),['First','Second']);
   assert.equal(rows[0].order,1);
   assert.match(rows[0].photo,/people\/2\/headshot/);
+  assert.equal(rows[0].hrPerGame,0.1);
+  assert.equal(rows[0].atBatsPerHr,30);
 });

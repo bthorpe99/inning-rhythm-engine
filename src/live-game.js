@@ -6,7 +6,10 @@ function lineupFromBoxTeam(team = {}) {
     const id=Number(rawId);
     const player=team.players?.[`ID${id}`] || {};
     const batting=player.seasonStats?.batting || {};
-    return { order:index+1,id,name:player.person?.fullName||'TBD',position:player.position?.abbreviation||'',batSide:player.person?.batSide?.code||'',photo:`https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${id}/headshot/67/current`,ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(Number(batting.homeRuns))?Number(batting.homeRuns):null };
+    const homeRuns=Number(batting.homeRuns);
+    const gamesPlayed=Number(batting.gamesPlayed ?? batting.games);
+    const atBats=Number(batting.atBats);
+    return { order:index+1,id,name:player.person?.fullName||'TBD',position:player.position?.abbreviation||'',batSide:player.person?.batSide?.code||'',photo:`https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${id}/headshot/67/current`,ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(homeRuns)?homeRuns:null,hrPerGame:Number.isFinite(homeRuns)&&Number.isFinite(gamesPlayed)&&gamesPlayed>0?homeRuns/gamesPlayed:null,atBatsPerHr:Number.isFinite(homeRuns)&&homeRuns>0&&Number.isFinite(atBats)?atBats/homeRuns:null };
   });
 }
 

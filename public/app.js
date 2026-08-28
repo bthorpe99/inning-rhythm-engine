@@ -140,7 +140,7 @@ function pregamePitcher(photo,name,team) {
 
 function pregameLineups(game) {
   if(!game.awayLineup?.length&&!game.homeLineup?.length) return `<div class="lineup-not-posted">BATTING ORDERS NOT YET POSTED BY MLB</div>`;
-  const team=(name,rows)=>`<div><h4>${escapeHtml(name)}</h4>${rows.map(row=>`<article>${row.photo?`<img src="${escapeHtml(row.photo)}" alt="${escapeHtml(row.name)}" loading="lazy">`:''}<b>${row.order}</b><span><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.position)} · ${escapeHtml(row.batSide)} · OPS ${row.ops?.toFixed(3)??'—'}</small></span></article>`).join('')}</div>`;
+  const team=(name,rows)=>`<div><h4>${escapeHtml(name)}</h4>${rows.map(row=>`<article>${row.photo?`<img src="${escapeHtml(row.photo)}" alt="${escapeHtml(row.name)}" loading="lazy">`:''}<b>${row.order}</b><span><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.position)} · ${escapeHtml(row.batSide)} · OPS ${row.ops?.toFixed(3)??'—'}</small><small class="hr-rate">${row.homeRuns??'—'} HR · ${row.hrPerGame?.toFixed(3)??'—'} HR/G · ${row.atBatsPerHr?.toFixed(1)??'—'} AB/HR</small></span></article>`).join('')}</div>`;
   return `<div class="pregame-lineups"><header>${game.lineupsConfirmed?'✓ MLB CONFIRMED BATTING ORDERS':'⚠ PARTIAL MLB LINEUPS'}</header><section>${team(game.awayTeam,game.awayLineup||[])}${team(game.homeTeam,game.homeLineup||[])}</section></div>`;
 }
 
