@@ -1,3 +1,5 @@
+const { loadPitcherRankings } = require('./pitcher-rankings');
+
 async function loadLiveGame(gamePk, trackedInning = 3) {
   const response = await fetch(`https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`);
   if (!response.ok) throw new Error(`MLB live feed returned ${response.status}`);
@@ -19,6 +21,9 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
   const pitcherBox = pitcherId ? feed.liveData?.boxscore?.teams?.[side]?.players?.[`ID${pitcherId}`] : null;
   const pitcherStats = pitcherBox?.stats?.pitching;
   const pitcherSeasonStats = pitcherBox?.seasonStats?.pitching;
+  const season = Number(feed.gameData?.datetime?.officialDate?.slice(0,4)) || new Date().getUTCFullYear();
+  const leagueRanks = await loadPitcherRankings(season);
+  const pitcherLeagueRanking = leagueRanks.rankings.get(Number(pitcherId)) || null;
   const status = trackedRuns > 0 ? 'LOST' : thirdComplete ? 'WON' : 'PENDING';
   const inningResults = (linescore.innings || []).map(row => {
     const awayRecorded = Number.isFinite(row.away?.runs);
@@ -49,6 +54,7 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
     pitcherPhoto: pitcherId ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_240,q_auto:best/v1/people/${pitcherId}/headshot/67/current` : null,
     pitchCount: pitcherStats?.pitchesThrown ?? null,
     pitcherEra: Number.isFinite(Number(pitcherSeasonStats?.era)) ? Number(pitcherSeasonStats.era) : null,
+    pitcherLeagueRanking,
     batter: matchup.batter?.fullName || 'TBD',
     onFirst: Boolean(linescore.offense?.first),
     onSecond: Boolean(linescore.offense?.second),

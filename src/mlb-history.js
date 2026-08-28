@@ -1,5 +1,6 @@
 const MLB_API = 'https://statsapi.mlb.com/api/v1';
 const { dateInCentral } = require('./live-game');
+const { loadPitcherRankings } = require('./pitcher-rankings');
 
 function isoDate(date) { return date.toISOString().slice(0, 10); }
 
@@ -125,12 +126,12 @@ async function loadMlbMatchups() {
 
   const upcomingUrl = `${MLB_API}/schedule?sportId=1&startDate=${isoDate(asOf)}&endDate=${isoDate(upcomingEnd)}&gameTypes=R&hydrate=team,probablePitcher`;
   const historyUrl = `${MLB_API}/schedule?sportId=1&startDate=${isoDate(start)}&endDate=${isoDate(end)}&gameTypes=R&hydrate=team,linescore`;
-  const [upcomingPayload, historyPayload] = await Promise.all([fetchJson(upcomingUrl), fetchJson(historyUrl)]);
+  const season = asOf.getUTCFullYear();
+  const [upcomingPayload, historyPayload, leagueRanks] = await Promise.all([fetchJson(upcomingUrl), fetchJson(historyUrl), loadPitcherRankings(season)]);
   const upcoming = scheduleGames(upcomingPayload);
   const firstDate = upcoming[0]?.officialDate;
   const slate = upcoming.filter(game => game.officialDate === firstDate);
   const histories = teamHistories(scheduleGames(historyPayload));
-  const season = asOf.getUTCFullYear();
   const pitcherIds = [...new Set(slate.flatMap(game => [game.teams.away.probablePitcher?.id, game.teams.home.probablePitcher?.id]).filter(Boolean))];
   const pitcherPairs = await Promise.all(pitcherIds.map(async id => [id, await loadPitcherProfile(id, season)]));
   const pitcherProfiles = new Map(pitcherPairs);
@@ -140,8 +141,12 @@ async function loadMlbMatchups() {
     const home = game.teams.home.team;
     const awayHistory = histories.get(away.id) || [];
     const homeHistory = histories.get(home.id) || [];
-    const awayPitcherProfile = pitcherProfiles.get(game.teams.away.probablePitcher?.id) || null;
-    const homePitcherProfile = pitcherProfiles.get(game.teams.home.probablePitcher?.id) || null;
+    const awayPitcherId = game.teams.away.probablePitcher?.id;
+    const homePitcherId = game.teams.home.probablePitcher?.id;
+    const awayBaseProfile = pitcherProfiles.get(awayPitcherId) || null;
+    const homeBaseProfile = pitcherProfiles.get(homePitcherId) || null;
+    const awayPitcherProfile = awayBaseProfile ? { ...awayBaseProfile, leagueRanking:leagueRanks.rankings.get(Number(awayPitcherId)) || null } : null;
+    const homePitcherProfile = homeBaseProfile ? { ...homeBaseProfile, leagueRanking:leagueRanks.rankings.get(Number(homePitcherId)) || null } : null;
     return {
       id: `mlb-${game.gamePk}`, sport: 'MLB', market: 'INNING_RHYTHM',
       event: `${away.name} at ${home.name}`, selection: 'Inning over 0.5 run pattern',
