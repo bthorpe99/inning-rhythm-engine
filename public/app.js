@@ -46,6 +46,7 @@ function signalResult(game,row) {
   const result=(live.inningResults||[]).find(item=>item.inning===row.inning);
   if(result?.runs>0) return 'LOST';
   if(result?.complete && result.runs===0) return 'WON';
+  if(live.kind==='FINAL' && result && result.runs===0) return 'WON';
   if(live.kind==='FINAL') return 'NO ACTION';
   if(live.kind==='LIVE' && live.inning===row.inning) return 'LIVE';
   return live.kind==='UPCOMING' ? 'UPCOMING' : 'PENDING';
