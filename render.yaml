@@ -3,6 +3,7 @@ services:
     name: inning-rhythm-engine
     runtime: node
     plan: free
+    autoDeployTrigger: commit
     buildCommand: npm test
     startCommand: npm start
     healthCheckPath: /api/signals
