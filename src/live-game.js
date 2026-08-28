@@ -90,6 +90,30 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
     return { id,name:player.person?.fullName||'TBD',photo:`https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${id}/headshot/67/current`,ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(Number(batting.homeRuns))?Number(batting.homeRuns):null,avg:Number.isFinite(Number(batting.avg))?Number(batting.avg):null };
   });
   const nextHalfTeam = feed.gameData?.teams?.[nextBattingSide]?.name || nextBattingSide;
+  const halfSequence=[];
+  let forecastHalf=linescore.isTopInning?'top':'bottom';
+  let forecastInning=Number(linescore.currentInning)||1;
+  for(let step=0;step<3;step++){
+    if(forecastHalf==='top') forecastHalf='bottom';
+    else { forecastHalf='top'; forecastInning+=1; }
+    const futureBattingSide=forecastHalf==='top'?'away':'home';
+    const futureDefenseSide=futureBattingSide==='away'?'home':'away';
+    const futureBattingTeam=feed.liveData?.boxscore?.teams?.[futureBattingSide]||{};
+    const futureOrder=futureBattingTeam.battingOrder||[];
+    const lastSidePlay=[...(feed.liveData?.plays?.allPlays||[])].reverse().find(row=>row.about?.halfInning===forecastHalf&&row.matchup?.batter?.id);
+    const lastSideIndex=futureOrder.findIndex(id=>Number(id)===Number(lastSidePlay?.matchup?.batter?.id));
+    const futureStart=lastSideIndex>=0?(lastSideIndex+1)%Math.max(1,futureOrder.length):0;
+    const batters=Array.from({length:Math.min(3,futureOrder.length)},(_,offset)=>{
+      const id=Number(futureOrder[(futureStart+offset)%futureOrder.length]);
+      const player=futureBattingTeam.players?.[`ID${id}`]||{};
+      const batting=player.seasonStats?.batting||{};
+      return {id,name:player.person?.fullName||'TBD',photo:`https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${id}/headshot/67/current`,homeRuns:Number.isFinite(Number(batting.homeRuns))?Number(batting.homeRuns):null};
+    });
+    const defenseTeam=feed.liveData?.boxscore?.teams?.[futureDefenseSide]||{};
+    const expectedPitcherId=Number((defenseTeam.pitchers||[]).at(-1)||feed.gameData?.probablePitchers?.[futureDefenseSide]?.id);
+    const expectedPitcher=defenseTeam.players?.[`ID${expectedPitcherId}`]||{};
+    halfSequence.push({label:`${forecastHalf.toUpperCase()} ${forecastInning}`,battingTeam:feed.gameData?.teams?.[futureBattingSide]?.name||futureBattingSide,pitchingTeam:feed.gameData?.teams?.[futureDefenseSide]?.name||futureDefenseSide,batters,pitcher:{id:Number.isFinite(expectedPitcherId)?expectedPitcherId:null,name:expectedPitcher.person?.fullName||feed.gameData?.probablePitchers?.[futureDefenseSide]?.fullName||'TBD',photo:Number.isFinite(expectedPitcherId)?`https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${expectedPitcherId}/headshot/67/current`:null}});
+  }
   const season = Number(feed.gameData?.datetime?.officialDate?.slice(0,4)) || new Date().getUTCFullYear();
   const leagueRanks = await loadPitcherRankings(season);
   const pitcherLeagueRanking = leagueRanks.rankings.get(Number(pitcherId)) || null;
@@ -133,6 +157,7 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
     nextHalfDueUp,
     nextHalfTeam,
     nextHalfLabel:linescore.isTopInning?`BOTTOM ${linescore.currentInning}`:`TOP ${linescore.currentInning+1}`,
+    futureHalves:halfSequence,
     onFirst: Boolean(linescore.offense?.first),
     onSecond: Boolean(linescore.offense?.second),
     onThird: Boolean(linescore.offense?.third),
