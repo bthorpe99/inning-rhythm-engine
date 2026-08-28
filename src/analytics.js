@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { mirrorPredictionRows, durableStorageStatus } = require('./durable-store');
 
 const ledgerPath = path.join(__dirname, '..', 'data', 'prediction-ledger.json');
 
@@ -60,7 +61,7 @@ function analytics(candidates) {
     const edge = edgeFor(game, inning);
     return { gameId:game.id,event:game.event,inning:inning.inning,probability:inning.predictedUnder,sampleSize:inning.combinedSampleSize,quality,edge,alert:Boolean(edge && edge.edge >= .04 && quality.confidence !== 'LOW') };
   })).sort((a,b)=>b.probability-a.probability);
-  return { generatedAt:new Date().toISOString(), calibration:calibration(candidates), recordedPerformance:performanceFromLedger(readLedger()), signals };
+  return { generatedAt:new Date().toISOString(), calibration:calibration(candidates), recordedPerformance:performanceFromLedger(readLedger()), durableStorage:durableStorageStatus(), signals };
 }
 
 function readLedger() { try { return JSON.parse(fs.readFileSync(ledgerPath,'utf8')); } catch (error) { if (error.code==='ENOENT') return []; throw error; } }
@@ -73,9 +74,28 @@ function writeLedger(rows) {
 function recordPrediction(row) {
   const ledger = readLedger();
   if (ledger.some(item => item.idempotencyKey === row.idempotencyKey)) return false;
-  ledger.push({...row,recordedAt:new Date().toISOString()});
+  const saved = {...row,recordedAt:new Date().toISOString()};
+  ledger.push(saved);
   writeLedger(ledger);
+  void mirrorPredictionRows([saved]);
   return true;
+}
+
+function recordOddsSnapshots(candidates) {
+  let added = 0;
+  for (const game of candidates.filter(item=>item.odds)) {
+    const gamePk = Number(String(game.id).replace('mlb-',''));
+    const updatedAt = game.odds.moneyline?.updatedAt || game.odds.total?.updatedAt || new Date().toISOString().slice(0,16);
+    const signature = Buffer.from(JSON.stringify(game.odds)).toString('base64url').slice(0,24);
+    added += Number(recordPrediction({
+      idempotencyKey:`odds:${gamePk}:${updatedAt}:${signature}`, phase:'ODDS', gamePk,
+      event:game.event, startsAt:game.startsAt, providerStatus:game.oddsStatus,
+      moneyline:game.odds.moneyline, gameTotal:game.odds.total,
+      firstInningTotal:game.odds.firstInningTotal, runLine:game.odds.runLine,
+      source:game.odds.source || game.odds.moneyline?.book, status:'RECORDED'
+    }));
+  }
+  return added;
 }
 
 function recordPregamePredictions(candidates) {
@@ -103,6 +123,7 @@ function recordPregamePredictions(candidates) {
 function settlePredictions(slate) {
   const ledger = readLedger();
   let changed = 0;
+  const changedRows = [];
   for (const row of ledger.filter(item => item.status === 'OPEN' || item.status === 'PENDING')) {
     const game = slate.find(item => Number(item.gamePk) === Number(row.gamePk));
     if (!game) continue;
@@ -117,9 +138,13 @@ function settlePredictions(slate) {
     row.finalRuns = result?.runs ?? null;
     row.outcomeUnder05 = status === 'WON' ? 1 : status === 'LOST' ? 0 : null;
     row.settledAt = new Date().toISOString();
+    changedRows.push(row);
     changed++;
   }
-  if (changed) writeLedger(ledger);
+  if (changed) {
+    writeLedger(ledger);
+    void mirrorPredictionRows(changedRows);
+  }
   return changed;
 }
 
@@ -135,4 +160,4 @@ function performanceFromLedger(ledger) {
   return { recorded:ledger.length, settled:settled.length, won, lost:settled.length-won, winRate:settled.length?won/settled.length:null, brier, byInning };
 }
 
-module.exports = { qualityFor, rollingBacktest, calibration, analytics, recordPrediction, recordPregamePredictions, settlePredictions, performanceFromLedger, readLedger, clamp };
+module.exports = { qualityFor, rollingBacktest, calibration, analytics, recordPrediction, recordPregamePredictions, recordOddsSnapshots, settlePredictions, performanceFromLedger, readLedger, clamp };

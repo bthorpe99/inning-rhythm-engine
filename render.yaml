@@ -20,3 +20,7 @@ services:
         value: "824234"
       - key: TRACK_INNING
         value: "3"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false

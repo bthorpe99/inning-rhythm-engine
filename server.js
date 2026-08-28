@@ -5,7 +5,7 @@ const { evaluateCandidate } = require('./src/engine');
 const { loadCandidates } = require('./src/providers');
 const { readLedger, savePaperBet } = require('./src/store');
 const { loadLiveGame, loadLiveSlate } = require('./src/live-game');
-const { analytics, recordPrediction, recordPregamePredictions, settlePredictions, readLedger: readPredictionLedger } = require('./src/analytics');
+const { analytics, recordPrediction, recordPregamePredictions, recordOddsSnapshots, settlePredictions, readLedger: readPredictionLedger } = require('./src/analytics');
 
 loadEnv();
 const port = Number(process.env.PORT || 8787);
@@ -28,6 +28,7 @@ async function refresh() {
     const provider = await loadCandidates();
     snapshot = { ...provider, candidates: provider.candidates.map(c => c.market === 'INNING_RHYTHM' ? c : evaluateCandidate(c, minEdge)), refreshedAt: new Date().toISOString() };
     recordPregamePredictions(snapshot.candidates);
+    recordOddsSnapshots(snapshot.candidates);
   } catch (error) {
     snapshot = { ...snapshot, error: error.message, refreshedAt: new Date().toISOString() };
   }
