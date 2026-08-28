@@ -69,6 +69,13 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
   });
   const lineupOpsValues=dueUp.map(row=>row.ops).filter(Number.isFinite);
   const lineupOps=lineupOpsValues.length?lineupOpsValues.reduce((sum,value)=>sum+value,0)/lineupOpsValues.length:null;
+  const runners=['first','second','third'].flatMap((base,index)=>{
+    const runner=linescore.offense?.[base];
+    if(!runner?.id) return [];
+    const player=battingTeam.players?.[`ID${runner.id}`] || {};
+    const batting=player.seasonStats?.batting || {};
+    return [{base:index+1,id:Number(runner.id),name:runner.fullName||player.person?.fullName||'TBD',photo:`https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${runner.id}/headshot/67/current`,homeRuns:Number.isFinite(Number(batting.homeRuns))?Number(batting.homeRuns):null}];
+  });
   const nextBattingSide = linescore.isTopInning ? 'home' : 'away';
   const nextBattingTeam = feed.liveData?.boxscore?.teams?.[nextBattingSide] || {};
   const nextOrder = nextBattingTeam.battingOrder || [];
@@ -118,6 +125,7 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
     pitcherEra: Number.isFinite(Number(pitcherSeasonStats?.era)) ? Number(pitcherSeasonStats.era) : null,
     pitcherLeagueRanking,
     batter: matchup.batter?.fullName || 'TBD',
+    runners,
     dueUp,
     lineupOps,
     lineupVerified,
