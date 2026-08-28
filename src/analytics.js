@@ -107,7 +107,8 @@ function recordPregamePredictions(candidates) {
       idempotencyKey:`pregame:${gamePk}:${inning.inning}`,
       phase:'PREGAME', gamePk, inning:inning.inning, event:game.event, startsAt:game.startsAt,
       probability:inning.predictedUnder, probabilityUnder05:inning.predictedUnder,
-      probabilityUnder15:inning.predictedUnder15, sampleSize:inning.combinedSampleSize,
+      probabilityOver05:1-inning.predictedUnder, probabilityUnder15:inning.predictedUnder15,
+      probabilityOver15:1-inning.predictedUnder15, sampleSize:inning.combinedSampleSize,
       underCount:inning.combinedUnderCount, under15Count:inning.combinedUnder15Count,
       pitcherAdjusted:Boolean(inning.pitcherAdjusted), pitcherWeight:inning.pitcherWeight || 0,
       awayPitcher:game.awayPitcher, homePitcher:game.homePitcher,
@@ -137,6 +138,9 @@ function settlePredictions(slate) {
     row.status = status;
     row.finalRuns = result?.runs ?? null;
     row.outcomeUnder05 = status === 'WON' ? 1 : status === 'LOST' ? 0 : null;
+    row.outcomeOver05 = row.outcomeUnder05 === null ? null : 1 - row.outcomeUnder05;
+    row.outcomeUnder15 = result ? Number(result.runs <= 1) : null;
+    row.outcomeOver15 = result ? Number(result.runs > 1) : null;
     row.settledAt = new Date().toISOString();
     changedRows.push(row);
     changed++;
@@ -149,7 +153,15 @@ function settlePredictions(slate) {
 }
 
 function performanceFromLedger(ledger) {
-  const settled = ledger.filter(row => row.outcomeUnder05 === 0 || row.outcomeUnder05 === 1);
+  const evaluated = ledger.map(row => {
+    if (!Number.isFinite(Number(row.finalRuns))) return row;
+    const runs=Number(row.finalRuns);
+    return { ...row,
+      outcomeUnder05:row.outcomeUnder05 ?? Number(runs===0), outcomeOver05:row.outcomeOver05 ?? Number(runs>0),
+      outcomeUnder15:row.outcomeUnder15 ?? Number(runs<=1), outcomeOver15:row.outcomeOver15 ?? Number(runs>1)
+    };
+  });
+  const settled = evaluated.filter(row => row.outcomeUnder05 === 0 || row.outcomeUnder05 === 1);
   const won = settled.filter(row => row.outcomeUnder05 === 1).length;
   const brierRows = settled.filter(row => Number.isFinite(Number(row.probability)));
   const brier = brierRows.length ? brierRows.reduce((sum,row)=>sum+(Number(row.probability)-row.outcomeUnder05)**2,0)/brierRows.length : null;
@@ -157,7 +169,24 @@ function performanceFromLedger(ledger) {
     const rows = settled.filter(row => Number(row.inning) === index + 1);
     return { inning:index+1, samples:rows.length, wins:rows.filter(row=>row.outcomeUnder05===1).length, winRate:rows.length ? rows.filter(row=>row.outcomeUnder05===1).length/rows.length : null };
   });
-  return { recorded:ledger.length, settled:settled.length, won, lost:settled.length-won, winRate:settled.length?won/settled.length:null, brier, byInning };
+  const marketResult = (outcomeKey, probabilityKey, fallback) => {
+    const rows=evaluated.filter(row=>row[outcomeKey]===0||row[outcomeKey]===1);
+    const wins=rows.filter(row=>row[outcomeKey]===1).length;
+    const probabilityFor=row=>row[probabilityKey] ?? (fallback ? fallback(row) : null);
+    const scored=rows.filter(row=>probabilityFor(row)!==null&&Number.isFinite(Number(probabilityFor(row))));
+    const marketBrier=scored.length?scored.reduce((sum,row)=>{
+      const probability=Number(probabilityFor(row));
+      return sum+(probability-row[outcomeKey])**2;
+    },0)/scored.length:null;
+    return { samples:rows.length,wins,losses:rows.length-wins,winRate:rows.length?wins/rows.length:null,brier:marketBrier };
+  };
+  const markets={
+    under05:marketResult('outcomeUnder05','probabilityUnder05',row=>row.probability),
+    over05:marketResult('outcomeOver05','probabilityOver05',row=>1-Number(row.probabilityUnder05??row.probability)),
+    under15:marketResult('outcomeUnder15','probabilityUnder15'),
+    over15:marketResult('outcomeOver15','probabilityOver15',row=>1-Number(row.probabilityUnder15))
+  };
+  return { recorded:ledger.length, settled:settled.length, won, lost:settled.length-won, winRate:settled.length?won/settled.length:null, brier, byInning, markets };
 }
 
 module.exports = { qualityFor, rollingBacktest, calibration, analytics, recordPrediction, recordPregamePredictions, recordOddsSnapshots, settlePredictions, performanceFromLedger, readLedger, clamp };

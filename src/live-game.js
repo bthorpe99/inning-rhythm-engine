@@ -21,6 +21,19 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
   const pitcherBox = pitcherId ? feed.liveData?.boxscore?.teams?.[side]?.players?.[`ID${pitcherId}`] : null;
   const pitcherStats = pitcherBox?.stats?.pitching;
   const pitcherSeasonStats = pitcherBox?.seasonStats?.pitching;
+  const battingSide = linescore.isTopInning ? 'away' : 'home';
+  const battingTeam = feed.liveData?.boxscore?.teams?.[battingSide] || {};
+  const battingOrder = battingTeam.battingOrder || [];
+  const batterId = Number(matchup.batter?.id);
+  const currentOrderIndex = Math.max(0, battingOrder.findIndex(id=>Number(id)===batterId));
+  const dueUp = Array.from({length:Math.min(4,battingOrder.length)},(_,offset)=>{
+    const id=Number(battingOrder[(currentOrderIndex+offset)%battingOrder.length]);
+    const player=battingTeam.players?.[`ID${id}`] || {};
+    const batting=player.seasonStats?.batting || {};
+    return { id,name:player.person?.fullName || 'TBD',current:offset===0,ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(Number(batting.homeRuns))?Number(batting.homeRuns):null,avg:Number.isFinite(Number(batting.avg))?Number(batting.avg):null };
+  });
+  const lineupOpsValues=dueUp.map(row=>row.ops).filter(Number.isFinite);
+  const lineupOps=lineupOpsValues.length?lineupOpsValues.reduce((sum,value)=>sum+value,0)/lineupOpsValues.length:null;
   const season = Number(feed.gameData?.datetime?.officialDate?.slice(0,4)) || new Date().getUTCFullYear();
   const leagueRanks = await loadPitcherRankings(season);
   const pitcherLeagueRanking = leagueRanks.rankings.get(Number(pitcherId)) || null;
@@ -56,6 +69,8 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
     pitcherEra: Number.isFinite(Number(pitcherSeasonStats?.era)) ? Number(pitcherSeasonStats.era) : null,
     pitcherLeagueRanking,
     batter: matchup.batter?.fullName || 'TBD',
+    dueUp,
+    lineupOps,
     onFirst: Boolean(linescore.offense?.first),
     onSecond: Boolean(linescore.offense?.second),
     onThird: Boolean(linescore.offense?.third),
@@ -73,12 +88,13 @@ function liveUnderProjection(game, pregameUnder) {
   const currentHalf = .5 * halfBaseline + .5 * pitcherHalf;
   const remainingOuts = Math.max(0, 3 - game.outs);
   const basePenalty = Math.max(.15, 1 - (game.onFirst ? .12 : 0) - (game.onSecond ? .22 : 0) - (game.onThird ? .34 : 0));
-  const remainingHalfUnder = Math.pow(currentHalf, remainingOuts / 3) * basePenalty;
+  const lineupFactor = Number.isFinite(game.lineupOps) ? Math.max(.88,Math.min(1.12,1-(game.lineupOps-.72)*.35)) : 1;
+  const remainingHalfUnder = Math.pow(currentHalf, remainingOuts / 3) * basePenalty * lineupFactor;
   const noMoreRuns = Math.max(0, Math.min(1, game.half === 'Top' ? remainingHalfUnder * halfBaseline : remainingHalfUnder));
   const liveUnder05 = game.trackedRuns > 0 ? 0 : noMoreRuns;
   const remainingLambda = -Math.log(Math.max(.001, noMoreRuns));
   const liveUnder15 = game.trackedRuns === 1 ? noMoreRuns : Math.min(.999, noMoreRuns * (1 + remainingLambda));
-  return { pregameUnder, liveUnder: liveUnder05, liveUnder05, liveUnder15, change: liveUnder05 - pregameUnder };
+  return { pregameUnder, liveUnder: liveUnder05, liveUnder05, liveUnder15, change: liveUnder05 - pregameUnder, lineupFactor, lineupOps:game.lineupOps ?? null };
 }
 
 function dateInCentral(date = new Date()) {

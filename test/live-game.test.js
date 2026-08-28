@@ -27,6 +27,14 @@ test('two runs make both under thresholds zero', () => {
   assert.equal(result.liveUnder15,0);
 });
 
+test('strong due-up hitters reduce the live under projection', () => {
+  const base={trackedRuns:0,outs:0,half:'Bottom',pitcherEra:3,onFirst:false,onSecond:false,onThird:false};
+  const weak=liveUnderProjection({...base,lineupOps:.600},.6);
+  const strong=liveUnderProjection({...base,lineupOps:.900},.6);
+  assert.ok(strong.liveUnder05<weak.liveUnder05);
+  assert.ok(strong.lineupFactor<1);
+});
+
 test('slate date uses America/Chicago instead of UTC rollover', () => {
   assert.equal(dateInCentral(new Date('2026-08-27T02:00:00Z')),'2026-08-26');
 });

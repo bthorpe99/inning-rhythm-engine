@@ -66,6 +66,9 @@ const server = http.createServer(async (req, res) => {
         idempotencyKey:`${game.gamePk}:${game.trackedInning}:${minute}`,
         gamePk:game.gamePk, inning:game.trackedInning, probability:game.projection.liveUnder,
         pregameProbability:game.projection.pregameUnder, pitcher:game.pitcher, pitcherEra:game.pitcherEra,
+        probabilityUnder05:game.projection.liveUnder05, probabilityOver05:1-game.projection.liveUnder05,
+        probabilityUnder15:game.projection.liveUnder15, probabilityOver15:1-game.projection.liveUnder15,
+        dueUp:game.dueUp, lineupOps:game.lineupOps, lineupFactor:game.projection.lineupFactor,
         outs:game.outs, half:game.half, runners:[game.onFirst,game.onSecond,game.onThird], trackedRuns:game.trackedRuns,
         phase:'LIVE', source:'MLB Stats API live feed', status:game.status === 'PENDING' ? 'OPEN' : game.status
       });

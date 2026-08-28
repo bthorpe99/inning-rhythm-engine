@@ -35,3 +35,14 @@ test('recorded performance calculates settled win rate and brier score', () => {
   assert.equal(result.byInning[0].samples,2);
   assert.ok(Math.abs(result.brier-.225)<1e-9);
 });
+
+test('recorded performance grades under and over for both inning totals', () => {
+  const result=performanceFromLedger([
+    {probabilityUnder05:.7,probabilityUnder15:.9,outcomeUnder05:1,outcomeOver05:0,outcomeUnder15:1,outcomeOver15:0},
+    {probabilityUnder05:.6,probabilityUnder15:.8,outcomeUnder05:0,outcomeOver05:1,outcomeUnder15:0,outcomeOver15:1}
+  ]);
+  assert.equal(result.markets.under05.wins,1);
+  assert.equal(result.markets.over05.wins,1);
+  assert.equal(result.markets.under15.losses,1);
+  assert.equal(result.markets.over15.winRate,.5);
+});
