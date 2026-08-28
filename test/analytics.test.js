@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { rollingBacktest, qualityFor, analytics } = require('../src/analytics');
+const { rollingBacktest, qualityFor, analytics, performanceFromLedger } = require('../src/analytics');
 
 test('rolling backtest never uses the evaluated outcome', () => {
   const pattern = [0,0,0,1];
@@ -21,4 +21,17 @@ test('analytics returns calibration evidence and signals', () => {
   const result=analytics([{id:'g',event:'A at B',innings:[inning],odds:null,awayPitcherProfile:{},homePitcherProfile:{}}]);
   assert.equal(result.signals.length,1);
   assert.ok(result.calibration.samples>0);
+});
+
+test('recorded performance calculates settled win rate and brier score', () => {
+  const result = performanceFromLedger([
+    {inning:1,probability:.7,outcomeUnder05:1},
+    {inning:1,probability:.6,outcomeUnder05:0},
+    {inning:2,probability:.5,status:'OPEN'}
+  ]);
+  assert.equal(result.recorded,3);
+  assert.equal(result.settled,2);
+  assert.equal(result.winRate,.5);
+  assert.equal(result.byInning[0].samples,2);
+  assert.ok(Math.abs(result.brier-.225)<1e-9);
 });

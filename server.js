@@ -5,7 +5,7 @@ const { evaluateCandidate } = require('./src/engine');
 const { loadCandidates } = require('./src/providers');
 const { readLedger, savePaperBet } = require('./src/store');
 const { loadLiveGame, loadLiveSlate } = require('./src/live-game');
-const { analytics, recordPrediction, readLedger: readPredictionLedger } = require('./src/analytics');
+const { analytics, recordPrediction, recordPregamePredictions, settlePredictions, readLedger: readPredictionLedger } = require('./src/analytics');
 
 loadEnv();
 const port = Number(process.env.PORT || 8787);
@@ -27,6 +27,7 @@ async function refresh() {
   try {
     const provider = await loadCandidates();
     snapshot = { ...provider, candidates: provider.candidates.map(c => c.market === 'INNING_RHYTHM' ? c : evaluateCandidate(c, minEdge)), refreshedAt: new Date().toISOString() };
+    recordPregamePredictions(snapshot.candidates);
   } catch (error) {
     snapshot = { ...snapshot, error: error.message, refreshedAt: new Date().toISOString() };
   }
@@ -65,8 +66,9 @@ const server = http.createServer(async (req, res) => {
         gamePk:game.gamePk, inning:game.trackedInning, probability:game.projection.liveUnder,
         pregameProbability:game.projection.pregameUnder, pitcher:game.pitcher, pitcherEra:game.pitcherEra,
         outs:game.outs, half:game.half, runners:[game.onFirst,game.onSecond,game.onThird], trackedRuns:game.trackedRuns,
-        source:'MLB Stats API live feed', status:game.status
+        phase:'LIVE', source:'MLB Stats API live feed', status:game.status === 'PENDING' ? 'OPEN' : game.status
       });
+      settlePredictions(slate);
       return json(res, 200, slate);
     }
     if (req.method === 'GET' && url.pathname === '/api/analytics') return json(res, 200, analytics(snapshot.candidates));
