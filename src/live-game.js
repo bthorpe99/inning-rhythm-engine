@@ -25,12 +25,15 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
   const battingTeam = feed.liveData?.boxscore?.teams?.[battingSide] || {};
   const battingOrder = battingTeam.battingOrder || [];
   const batterId = Number(matchup.batter?.id);
-  const currentOrderIndex = Math.max(0, battingOrder.findIndex(id=>Number(id)===batterId));
-  const dueUp = Array.from({length:Math.min(4,battingOrder.length)},(_,offset)=>{
-    const id=Number(battingOrder[(currentOrderIndex+offset)%battingOrder.length]);
+  const currentOrderIndex = battingOrder.findIndex(id=>Number(id)===batterId);
+  const lineupVerified = currentOrderIndex >= 0;
+  const dueIds = lineupVerified
+    ? Array.from({length:Math.min(4,battingOrder.length)},(_,offset)=>Number(battingOrder[(currentOrderIndex+offset)%battingOrder.length]))
+    : [batterId,...battingOrder.map(Number).filter(id=>id!==batterId)].filter(Number.isFinite).slice(0,4);
+  const dueUp = dueIds.map((id,offset)=>{
     const player=battingTeam.players?.[`ID${id}`] || {};
     const batting=player.seasonStats?.batting || {};
-    return { id,name:player.person?.fullName || 'TBD',current:offset===0,ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(Number(batting.homeRuns))?Number(batting.homeRuns):null,avg:Number.isFinite(Number(batting.avg))?Number(batting.avg):null };
+    return { id,name:player.person?.fullName || (id===batterId?matchup.batter?.fullName:null) || 'TBD',current:offset===0,ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(Number(batting.homeRuns))?Number(batting.homeRuns):null,avg:Number.isFinite(Number(batting.avg))?Number(batting.avg):null };
   });
   const lineupOpsValues=dueUp.map(row=>row.ops).filter(Number.isFinite);
   const lineupOps=lineupOpsValues.length?lineupOpsValues.reduce((sum,value)=>sum+value,0)/lineupOpsValues.length:null;
@@ -71,6 +74,8 @@ async function loadLiveGame(gamePk, trackedInning = 3) {
     batter: matchup.batter?.fullName || 'TBD',
     dueUp,
     lineupOps,
+    lineupVerified,
+    lineupSource:'MLB live box score batting order',
     onFirst: Boolean(linescore.offense?.first),
     onSecond: Boolean(linescore.offense?.second),
     onThird: Boolean(linescore.offense?.third),
