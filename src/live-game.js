@@ -9,7 +9,8 @@ function lineupFromBoxTeam(team = {}) {
     const homeRuns=Number(batting.homeRuns);
     const gamesPlayed=Number(batting.gamesPlayed ?? batting.games);
     const atBats=Number(batting.atBats);
-    return { order:index+1,id,name:player.person?.fullName||'TBD',position:player.position?.abbreviation||'',batSide:player.person?.batSide?.code||'',photo:`https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${id}/headshot/67/current`,ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(homeRuns)?homeRuns:null,hrPerGame:Number.isFinite(homeRuns)&&Number.isFinite(gamesPlayed)&&gamesPlayed>0?homeRuns/gamesPlayed:null,atBatsPerHr:Number.isFinite(homeRuns)&&homeRuns>0&&Number.isFinite(atBats)?atBats/homeRuns:null };
+    const suppliedAtBatsPerHr=Number(batting.atBatsPerHomeRun);
+    return { order:index+1,id,name:player.person?.fullName||'TBD',position:player.position?.abbreviation||'',batSide:player.person?.batSide?.code||'',photo:`https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${id}/headshot/67/current`,ops:Number.isFinite(Number(batting.ops))?Number(batting.ops):null,homeRuns:Number.isFinite(homeRuns)?homeRuns:null,hrPerGame:Number.isFinite(homeRuns)&&Number.isFinite(gamesPlayed)&&gamesPlayed>0?homeRuns/gamesPlayed:null,atBatsPerHr:Number.isFinite(suppliedAtBatsPerHr)&&suppliedAtBatsPerHr>0?suppliedAtBatsPerHr:Number.isFinite(homeRuns)&&homeRuns>0&&Number.isFinite(atBats)?atBats/homeRuns:null };
   });
 }
 
@@ -177,7 +178,9 @@ async function loadLiveSlate(date = dateInCentral(), projections = []) {
       complete:Number.isFinite(row.away?.runs) && Number.isFinite(row.home?.runs)
     }));
     const detailedState=game.status?.detailedState;
-    const lineupInfo=state==='Preview'&&['Pre-Game','Warmup'].includes(detailedState) ? await loadPregameLineups(game.gamePk) : {awayLineup:[],homeLineup:[],lineupsConfirmed:false};
+    // MLB sometimes posts batting orders while the schedule still says "Scheduled".
+    // Check every upcoming game and display a lineup only when the official feed contains it.
+    const lineupInfo=state==='Preview' ? await loadPregameLineups(game.gamePk) : {awayLineup:[],homeLineup:[],lineupsConfirmed:false};
     const awayPitcherId=game.teams?.away?.probablePitcher?.id||null;
     const homePitcherId=game.teams?.home?.probablePitcher?.id||null;
     return {
