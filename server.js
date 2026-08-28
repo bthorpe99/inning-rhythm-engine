@@ -63,7 +63,7 @@ const server = http.createServer(async (req, res) => {
       const slate = await loadLiveSlate(url.searchParams.get('date') || undefined, snapshot.candidates);
       const minute = new Date().toISOString().slice(0,16);
       for (const game of slate.filter(item => item.kind === 'LIVE' && item.projection)) recordPrediction({
-        idempotencyKey:`${game.gamePk}:${game.trackedInning}:${minute}`,
+        idempotencyKey:`${game.gamePk}:${game.trackedInning}:${game.pitcherId||'unknown'}:${minute}`,
         gamePk:game.gamePk, inning:game.trackedInning, probability:game.projection.liveUnder,
         pregameProbability:game.projection.pregameUnder, pitcher:game.pitcher, pitcherEra:game.pitcherEra,
         probabilityUnder05:game.projection.liveUnder05, probabilityOver05:1-game.projection.liveUnder05,

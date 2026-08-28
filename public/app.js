@@ -1,5 +1,6 @@
 let state = { candidates: [] };
 let liveState = [];
+const pitcherChangeUntil = new Map();
 const pct = value => `${(value * 100).toFixed(1)}%`;
 const opposite = value => Math.max(0, Math.min(1, 1 - value));
 const money = value => value > 0 ? `+${value}` : String(value);
@@ -102,6 +103,11 @@ async function loadLive() {
     if (!Array.isArray(games)) throw new Error(games.error || 'Invalid live slate');
     const order = {LIVE:0,UPCOMING:1,FINAL:2};
     const ordered = games.sort((a,b) => order[a.kind] - order[b.kind]);
+    for(const game of ordered.filter(item=>item.kind==='LIVE')) {
+      const previous=liveState.find(item=>item.gamePk===game.gamePk&&item.kind==='LIVE');
+      if(previous?.pitcherId&&game.pitcherId&&previous.pitcherId!==game.pitcherId) pitcherChangeUntil.set(game.gamePk,Date.now()+60000);
+      game.pitcherChanged=(pitcherChangeUntil.get(game.gamePk)||0)>Date.now();
+    }
     liveState = ordered;
     document.querySelector('#liveMonitor').innerHTML = ordered.map(liveCard).join('');
     renderUnderBoard();
@@ -118,11 +124,12 @@ function liveCard(game) {
   const bases = `${game.onFirst ? '●' : '○'} ${game.onSecond ? '●' : '○'} ${game.onThird ? '●' : '○'}`;
   const projection = game.projection ? `<div class="live-projection"><small>LIVE U0.5</small><strong>${pct(game.projection.liveUnder05)}</strong><span class="${game.projection.change >= 0 ? 'up' : 'down'}">${game.projection.change >= 0 ? '▲' : '▼'} ${Math.abs(game.projection.change * 100).toFixed(1)} pts</span><small>LIVE O0.5</small><strong class="over-live">${pct(opposite(game.projection.liveUnder05))}</strong><span></span><small>LIVE U1.5</small><strong class="u15-live">${pct(game.projection.liveUnder15)}</strong><span></span><small>LIVE O1.5</small><strong class="over-live">${pct(opposite(game.projection.liveUnder15))}</strong><span></span></div>` : '<div class="live-projection"><small>LIVE UNDER / OVER</small><strong>—</strong></div>';
   const verification = game.pitcherVerified ? '<em class="pitcher-verified">✓ MLB DEFENSE VERIFIED</em>' : '<em class="pitcher-unverified">MLB PLATE APPEARANCE FEED</em>';
+  const changeBadge=game.pitcherChanged?'<em class="pitcher-change">PITCHER CHANGE — PROJECTION REPRICED</em>':'';
   const liveRank = game.pitcherLeagueRanking ? `#${game.pitcherLeagueRanking.rank} OF ${game.pitcherLeagueRanking.total} MLB` : 'MLB RANK NR';
   const dueUp=(game.dueUp||[]).map((hitter,index)=>`<div class="due-hitter ${index===0?'current':''}"><small>${index===0?'AT BAT':`DUE ${index+1}`}</small><b>${escapeHtml(hitter.name)}</b><span>OPS ${hitter.ops?.toFixed(3)??'—'} · ${hitter.homeRuns??'—'} HR</span></div>`).join('');
   const lineupLabel=game.projection?.lineupFactor<.985?'POWER LINEUP — UNDER REDUCED':game.projection?.lineupFactor>1.015?'WEAK LINEUP — UNDER BOOSTED':'NEUTRAL LINEUP';
   const lineupVerification=game.lineupVerified?'✓ MLB ORDER VERIFIED':'⚠ CURRENT BATTER VERIFIED · NEXT ORDER FALLBACK';
-  return `<article class="slate-card live"><div class="slate-card-top"><span><i class="live-dot"></i>LIVE · INNING ${game.trackedInning} UNDER .5</span><strong class="bet-status ${game.status.toLowerCase()}">${game.status}</strong></div><h3>${escapeHtml(game.awayTeam)} ${game.awayScore} — ${game.homeScore} ${escapeHtml(game.homeTeam)}</h3><p>${escapeHtml(game.half || '')} ${game.inningOrdinal || game.inning} · ${game.outs} outs · ${game.balls}-${game.strikes} · ${bases}</p>${projection}${inningResultStrip(game)}<div class="lineup-pressure"><small>${lineupVerification} · ${lineupLabel} · AVG OPS ${game.lineupOps?.toFixed(3)??'—'}</small><div>${dueUp}</div></div><div class="slate-pitcher">${game.pitcherPhoto ? `<img src="${escapeHtml(game.pitcherPhoto)}" alt="${escapeHtml(game.pitcher)}">` : ''}<div><small>ON THE MOUND ${verification}</small><strong>${escapeHtml(game.pitcher)} <em class="league-rank">${liveRank}</em></strong><span>${game.pitchCount ?? '—'} pitches · ERA ${game.pitcherEra ?? '—'} · vs ${escapeHtml(game.batter)}</span></div><b>${game.trackedRuns} RUNS</b></div><small class="last-play">${escapeHtml(game.lastPlay || 'Waiting for next pitch…')} · Updated ${new Date(game.updatedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})}</small></article>`;
+  return `<article class="slate-card live"><div class="slate-card-top"><span><i class="live-dot"></i>LIVE · INNING ${game.trackedInning} UNDER .5</span><strong class="bet-status ${game.status.toLowerCase()}">${game.status}</strong></div><h3>${escapeHtml(game.awayTeam)} ${game.awayScore} — ${game.homeScore} ${escapeHtml(game.homeTeam)}</h3><p>${escapeHtml(game.half || '')} ${game.inningOrdinal || game.inning} · ${game.outs} outs · ${game.balls}-${game.strikes} · ${bases}</p>${changeBadge}${projection}${inningResultStrip(game)}<div class="lineup-pressure"><small>${lineupVerification} · ${lineupLabel} · AVG OPS ${game.lineupOps?.toFixed(3)??'—'}</small><div>${dueUp}</div></div><div class="slate-pitcher">${game.pitcherPhoto ? `<img src="${escapeHtml(game.pitcherPhoto)}" alt="${escapeHtml(game.pitcher)}">` : ''}<div><small>ON THE MOUND ${verification}</small><strong>${escapeHtml(game.pitcher)} <em class="league-rank">${liveRank}</em></strong><span>${game.pitchCount ?? '—'} pitches · ERA ${game.pitcherEra ?? '—'} · vs ${escapeHtml(game.batter)}</span></div><b>${game.trackedRuns} RUNS</b></div><small class="last-play">${escapeHtml(game.lastPlay || 'Waiting for next pitch…')} · Updated ${new Date(game.updatedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})}</small></article>`;
 }
 
 function inningResultStrip(game) {
